@@ -1,0 +1,15 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Wayne Gretzky's 3D Hockey",
+  "wikidata": "Q3566832",
+  "system": "N64",
+  "type": "recomp",
+  "original": { "region": "USA", "revision": "1.0" },
+  "project": "W.G. 3D Hockey: Recompiled",
+  "status": "playable",
+  "targets": ["Windows"],
+  "toolchain": "N64recomp",
+  "approach": "Static recompilation with N64Recomp on N64ModernRuntime, RT64 renderer",
+  "maintainers": [{ "name": "geno55", "link": "https://github.com/geno55" }],
+  "notes": "Boots, renders, plays audio, supports keyboard and up to 4 gamepads, and saves to the Controller Pak (one pak per port). Menus, exhibition games, seasons, replays and attract mode verified against ares. A correctness pass (rendering, physics, all modes) is in progress."
+}
