@@ -1,0 +1,14 @@
+# RSPRecomp config for the audio microcode (standard-layout aspMain linked in the main segment).
+# Source: audio task setup at 0x80073008 (ucode = 0x8009E530, ucode_data = 0x800B8040).
+text_offset = 0x9D930        # ROM offset of 0x8009E530
+text_size = 0xE20            # up to the next symbol referenced (0x8009F350)
+text_address = 0x04001080    # IMEM load address after rspboot
+rom_file_path = "baserom.us.z64"
+output_file_path = "rsp/aspMain.cpp"
+output_function_name = "aspMain"
+# Audio command dispatch table (16 x u16 IMEM addresses at aspMain data + 0x10).
+extra_indirect_branch_targets = [
+    0x1118, 0x1470, 0x11DC, 0x1B38, 0x1214, 0x187C, 0x1254, 0x12D0,
+    0x12EC, 0x1328, 0x140C, 0x1294, 0x1E24, 0x138C, 0x170C, 0x144C,
+]
+unsupported_instructions = []

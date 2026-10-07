@@ -1,0 +1,14 @@
+# Manual decisions applied by tools/gen_syms.py on top of the automatic merge.
+# Each entry needs a `reason`. Addresses are VRAM.
+#
+# [[split]]   vram = 0x...  name = "..."   # add a function start (shortens the containing function)
+# [[merge]]   vram = 0x...                 # remove a function start (the previous function absorbs it)
+# [[rename]]  vram = 0x...  name = "..."   # name a function
+# [[reject_ghidra]] vram = 0x...           # Ghidra-only start that is not a real function start
+#
+# Starts that the automatic rules settle (see docs/syms_report.md) do not need an entry here.
+
+split = []
+merge = []
+rename = []
+reject_ghidra = []

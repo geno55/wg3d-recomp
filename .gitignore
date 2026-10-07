@@ -1,0 +1,24 @@
+# Never commit the ROM or anything extracted or generated from it.
+*.z64
+*.v64
+*.n64
+assets/
+RecompiledFuncs/
+rsp/aspMain.cpp
+include/wg3d_skipped.h
+
+# Build outputs, logs, captures, ROM-derived references (build/ref), analysis scratch.
+build/
+
+# Local tooling
+__pycache__/
+*.pyc
+.vs/
+.vscode/
+.claude/
+RecompiledFuncsTrace/
+wg3d.us.trace.toml
+
+# Per-phase planning/status notes stay local
+docs/phase*.md
+local_paths.toml

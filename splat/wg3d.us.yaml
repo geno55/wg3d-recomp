@@ -1,0 +1,207 @@
+# splat config for analysis (Phase 1.4), not for building. Generated once from
+# Rainchus/WayneGretzky3dHockey (its .text file boundaries) plus docs/rom_map.md.
+# Run from the project root: python -m splat split splat/wg3d.us.yaml
+name: W.G. 3D Hockey (US V1.0)
+sha1: 400aa84811f1f2f6c62c756b43b54d534d5a5ec8
+options:
+  basename: wg3d
+  target_path: baserom.us.z64
+  base_path: ..
+  platform: n64
+  compiler: IDO
+  find_file_boundaries: True
+  header_encoding: ASCII
+  disassemble_all: True
+  symbol_addrs_path: [syms/libultra_symbols.txt]
+  asm_path: build/splat/asm
+  src_path: build/splat/src
+  build_path: build/splat/build
+  ld_script_path: build/splat/wg3d.ld
+  undefined_funcs_auto_path: build/splat/undefined_funcs_auto.txt
+  undefined_syms_auto_path: build/splat/undefined_syms_auto.txt
+  hardware_regs: True
+  mips_abi_float_regs: o32
+segments:
+  - name: header
+    type: header
+    start: 0x0
+  - name: boot
+    type: bin
+    start: 0x40
+  - name: main
+    type: code
+    start: 0x1000
+    vram: 0x80001C00
+    bss_size: 0xAA570
+    subsegments:
+      - [0x1000, asm]
+      - [0x2930, asm]
+      - [0x34A0, asm]
+      - [0x4160, asm]
+      - [0x6DF0, asm]
+      - [0x7180, asm]
+      - [0x7A60, asm]
+      - [0xB580, asm]
+      - [0xB680, asm]
+      - [0xB7E0, asm]
+      - [0xB910, asm]
+      - [0xB9B0, asm]
+      - [0xBA80, asm]
+      - [0xBD70, asm]
+      - [0xBDB0, asm]
+      - [0xE7F0, asm]
+      - [0x10140, asm]
+      - [0x13440, asm]
+      - [0x18100, asm]
+      - [0x23690, asm]
+      - [0x24350, asm]
+      - [0x26D10, asm]
+      - [0x2AFA0, asm]
+      - [0x2BE60, asm]
+      - [0x2C210, asm]
+      - [0x31D00, asm]
+      - [0x34520, asm]
+      - [0x375A0, asm]
+      - [0x3A170, asm]
+      - [0x3A260, asm]
+      - [0x3EED0, asm]
+      - [0x415C0, asm]
+      - [0x46C80, asm]
+      - [0x46E30, asm]
+      - [0x47790, asm]
+      - [0x4E500, asm]
+      - [0x50860, asm]
+      - [0x573E0, asm]
+      - [0x58CC0, asm]
+      - [0x59350, asm]
+      - [0x5DDD0, asm]
+      - [0x5FF60, asm]
+      - [0x61D20, asm]
+      - [0x620E0, asm]
+      - [0x67500, asm]
+      - [0x6B340, asm]
+      - [0x6E760, asm]
+      - [0x6F480, asm]
+      - [0x6FEC0, asm]
+      - [0x711E0, asm]
+      - [0x73330, asm]
+      - [0x770A0, asm]
+      - [0x7D650, asm]
+      - [0x80FF0, asm]
+      - [0x81310, asm]
+      - [0x82150, asm]
+      - [0x83A70, asm]
+      - [0x845F0, asm]
+      - [0x84850, asm]
+      - [0x84BA0, asm]
+      - [0x8A680, asm]
+      - [0x8A6A0, asm]
+      - [0x8A930, asm]
+      - [0x8AA80, asm]
+      - [0x8AD50, asm]
+      - [0x8AE60, asm]
+      - [0x8AED0, asm]
+      - [0x8B3D0, asm]
+      - [0x8B480, asm]
+      - [0x8B510, asm]
+      - [0x8B7B0, asm]
+      - [0x8B900, asm]
+      - [0x8BAA0, asm]
+      - [0x8BBB0, asm]
+      - [0x8BC30, asm]
+      - [0x8BCA0, asm]
+      - [0x8BE60, asm]
+      - [0x8BEE0, asm]
+      - [0x8C390, asm]
+      - [0x8C400, asm]
+      - [0x8C560, asm]
+      - [0x8C820, asm]
+      - [0x8C8D0, asm]
+      - [0x8CC50, asm]
+      - [0x8D1C0, asm]
+      - [0x8D860, asm]
+      - [0x8DF60, asm]
+      - [0x8E280, asm]
+      - [0x8EEA0, asm]
+      - [0x8F1D0, asm]
+      - [0x8F510, asm]
+      - [0x8F530, asm]
+      - [0x8F580, asm]
+      - [0x8F690, asm]
+      - [0x8F6F0, asm]
+      - [0x8F750, asm]
+      - [0x8F7B0, asm]
+      - [0x8F810, asm]
+      - [0x8F860, asm]
+      - [0x8F8D0, asm]
+      - [0x8F8E0, asm]
+      - [0x8FF70, asm]
+      - [0x8FFB0, asm]
+      - [0x8FFF0, asm]
+      - [0x90080, asm]
+      - [0x900C0, asm]
+      - [0x90310, asm]
+      - [0x91E70, asm]
+      - [0x91EB0, asm]
+      - [0x925C0, asm]
+      - [0x92670, asm]
+      - [0x92680, asm]
+      - [0x92F10, asm]
+      - [0x931A0, asm]
+      - [0x93410, asm]
+      - [0x93430, asm]
+      - [0x934E0, asm]
+      - [0x93DD0, asm]
+      - [0x93E30, asm]
+      - [0x93ED0, asm]
+      - [0x93F10, asm]
+      - [0x94030, asm]
+      - [0x94290, asm]
+      - [0x94370, asm]
+      - [0x94420, asm]
+      - [0x944F0, asm]
+      - [0x94A30, asm]
+      - [0x94AF0, asm]
+      - [0x94B00, asm]
+      - [0x94E60, asm]
+      - [0x94E70, asm]
+      - [0x95190, asm]
+      - [0x951D0, asm]
+      - [0x95260, asm]
+      - [0x95290, asm]
+      - [0x952C0, asm]
+      - [0x962A0, asm]
+      - [0x96630, asm]
+      - [0x96960, asm]
+      - [0x96CB0, asm]
+      - [0x96D80, asm]
+      - [0x96ED0, asm]
+      - [0x96F60, asm]
+      - [0x97190, asm]
+      - [0x972D0, asm]
+      - [0x97360, asm]
+      - [0x97400, asm]
+      - [0x974A0, asm]
+      - [0x97C50, asm]
+      - [0x97CF0, asm]
+      - [0x98990, asm]
+      - [0x98C90, asm]
+      - [0x998F0, asm]
+      - [0x99A00, asm]
+      - [0x99AF0, asm]
+      - [0x99F70, asm]
+      - [0x9A0A0, asm]
+      - [0x9A1A0, asm]
+      - [0x9A1B0, asm]
+      - [0x9A3B0, asm]
+      - [0x9A3D0, asm]
+      - [0x9AFE0, asm]
+      - [0x9AFF0, asm]
+      - [0x9B050, bin, rsp_text]        # rspboot, F3D (dead), F3D WG3DH, aspMain
+      - [0x9E750, rodata, data_all]     # game .data/.rodata + libultra .data/.rodata (rodata for jtbl detection)
+      - [0xB6440, bin, rsp_data]        # ucode data
+      - { start: 0xB7790, type: bss, vram: 0x800B8390 }
+  - name: assets
+    type: bin
+    start: 0xB7790
+  - [0x800000]

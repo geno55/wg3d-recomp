@@ -1,0 +1,34 @@
+diff --git a/ultramodern/src/events.cpp b/ultramodern/src/events.cpp
+index 2f1cfb5..c369421 100644
+--- a/ultramodern/src/events.cpp
++++ b/ultramodern/src/events.cpp
+@@ -51,6 +51,8 @@ struct ViState {
+     int retrace_count = 1;
+ };
+ 
++extern const OSViMode dummy_mode;
++
+ #define VI_STATE_BLACK 0x20
+ #define VI_STATE_REPEATLINE 0x40
+ 
+@@ -71,6 +73,11 @@ static struct {
+         }
+         void update_vi() {
+             ViState* next_state = get_next_state();
++            // wg3d: a game started without a launcher can reach its first VI before any osViSetMode
++            // (and before the pre-game dummy VI has run), leaving no mode; scan out the dummy mode.
++            if (next_state->mode == nullptr) {
++                next_state->mode = &dummy_mode;
++            }
+             const OSViMode* next_mode = next_state->mode;
+             const OSViCommonRegs* common_regs = &next_mode->comRegs;
+             const OSViFieldRegs* field_regs = &next_mode->fldRegs[field];
+@@ -418,7 +425,7 @@ void gfx_thread_func(uint8_t* rdram, moodycamel::LightweightSemaphore* thread_re
+ #define VI_CTRL_PIXEL_ADV_3         0x03000
+ #define VI_CTRL_DITHER_FILTER_ON    0x10000
+ 
+-static const OSViMode dummy_mode = []() {
++const OSViMode dummy_mode = []() {
+     OSViMode ret{};
+ 
+     ret.type = 2;
