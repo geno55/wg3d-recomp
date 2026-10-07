@@ -10,13 +10,13 @@ the byteswapped `.v64` dump works too). The ROM, everything extracted from it an
 git-ignored and produced locally by the build.
 
 ## Status
-Phases 0–3 done: the game boots, renders, plays audio, takes keyboard and gamepad input (4 ports) and saves to
-the Controller Pak. Phase 4 (correctness pass) is in progress.
+The game boots, renders, plays audio, takes keyboard and gamepad input (4 ports) and saves to the Controller
+Pak. A correctness pass is in progress.
 
 ## Requirements (Windows)
 - Visual Studio 2022 Build Tools with clang-cl, Windows SDK 10.0.26100 (RT64's D3D12 backend needs it)
 - CMake, Ninja, Git
-- Python 3.11+ with `rabbitizer`, `numpy`, `pillow` (the Phase 1 analysis tools also use `splat64`/`spimdisasm`
+- Python 3.11+ with `rabbitizer`, `numpy`, `pillow` (the symbol-recovery tools also use `splat64`/`spimdisasm`
   and Ghidra, but their outputs are committed in `syms/`, so they aren't needed to build)
 
 ## Build
@@ -41,7 +41,7 @@ Keyboard (port 1): arrows/WASD stick, X = A, C = B, Z/LShift = Z, Enter = Start,
 TFGH = D-pad. Gamepads (Xbox layout) take ports 1–4 in connection order. Saves:
 `%APPDATA%\WG3DRecomp\saves\controllerpak_port<N>\`.
 
-Test gates: `tools/verify_phase2.py`, `tools/verify_phase3.py`.
+Verification scripts: `tools/verify_*.py`.
 
 ## Runtime patches
 `lib/N64ModernRuntime` is pinned to sonicdcer's `controller_pak_super_rebase` branch (Controller Pak support);
