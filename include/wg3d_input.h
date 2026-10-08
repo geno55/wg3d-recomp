@@ -22,6 +22,8 @@ namespace wg3d::input {
     void init();
     void handle_event(const SDL_Event& event);
     void update();  // snapshots all ports; called after the event pump
+    // Seconds since init(): the clock WG3D_INPUT_SCRIPT times are measured on (also used by WG3D_CAPTURE).
+    double script_time();
 
     // ultramodern input callbacks (called from game threads; read the snapshot).
     void poll_input();

@@ -97,3 +97,45 @@ void wg3d::stats::summarize_dl(const uint8_t* rdram, uint32_t dl_addr) {
     }
     std::fputc('\n', stderr);
 }
+
+// Main color image of a display list: the SETCIMG target that receives the most draw commands
+// (triangles, rectangles). Used by the frame log (chunk 4.4). Returns 0 if nothing is drawn.
+uint32_t wg3d::stats::main_color_image(const uint8_t* rdram, uint32_t dl_addr) {
+    uint32_t segments[16] = {};
+    uint32_t stack[16];
+    int depth = 0;
+    uint32_t pc = dl_addr & 0x7FFFFF;
+    std::map<uint32_t, int> draws;
+    uint32_t cimg = 0;
+    auto resolve = [&](uint32_t a) { return (segments[(a >> 24) & 0xF] + (a & 0xFFFFFF)) & 0x7FFFFF; };
+    for (int cmds = 0; cmds < 200000; cmds++) {
+        uint32_t w0 = word(rdram, pc), w1 = word(rdram, pc + 4);
+        pc += 8;
+        uint8_t op = w0 >> 24;
+        if (op == 0xB8) {  // G_ENDDL
+            if (depth == 0) break;
+            pc = stack[--depth];
+        } else if (op == 0x06) {  // G_DL
+            if (((w0 >> 16) & 0xFF) == 0) {
+                if (depth == 16) break;
+                stack[depth++] = pc;
+            }
+            pc = resolve(w1);
+        } else if (op == 0xBC) {  // G_MOVEWORD (segment)
+            if ((w0 & 0xFF) == 0x06) segments[((w0 >> 8) & 0xFFFF) / 4 & 0xF] = w1 & 0x7FFFFF;
+        } else if (op == 0xFF) {  // G_SETCIMG
+            cimg = resolve(w1);
+        } else if (op == 0xBF || op == 0xF6 || op == 0xE4 || op == 0xE5) {  // TRI1, FILLRECT, TEXRECT(FLIP)
+            draws[cimg]++;
+        }
+    }
+    uint32_t best = 0;
+    int best_draws = 0;
+    for (auto& [addr, n] : draws) {
+        if (n > best_draws) {
+            best = addr;
+            best_draws = n;
+        }
+    }
+    return best;
+}

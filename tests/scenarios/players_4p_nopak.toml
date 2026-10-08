@@ -1,0 +1,7 @@
+description = "Player screen with WG3D_FAKE_PADS=4 and no Controller Pak: ports 2-4 PRESS START TO JOIN, no CTLR PAK1"
+seconds = 20
+input = [[14.0, "START"], [16.0, "A"]]
+captures = [[19.0, "players"]]
+env = { WG3D_FAKE_PADS = "4" }
+pak = false
+ares = false

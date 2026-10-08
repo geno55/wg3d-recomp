@@ -273,6 +273,10 @@ void wg3d::input::update() {
     snapshot = next;
 }
 
+double wg3d::input::script_time() {
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start_time).count();
+}
+
 void wg3d::input::poll_input() {}
 
 bool wg3d::input::get_input(int port, uint16_t* buttons, float* x, float* y) {

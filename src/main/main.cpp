@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <xmmintrin.h>
 
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
@@ -31,6 +32,7 @@
 #include "librecomp/game.hpp"
 #include "librecomp/rsp.hpp"
 
+#include "wg3d_capture.h"
 #include "wg3d_config.h"
 #include "wg3d_crash.h"
 #include "wg3d_input.h"
@@ -91,6 +93,7 @@ static ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callba
     SDL_GetWindowWMInfo(window, &wm_info);
     // Before the game thread starts, so pads present at launch are on their ports for osContInit.
     wg3d::input::init();
+    wg3d::capture::init();
 #if defined(_WIN32)
     return ultramodern::renderer::WindowHandle{ wm_info.info.win.window, GetCurrentThreadId() };
 #else
@@ -121,6 +124,7 @@ static void update_gfx(void*) {
         wg3d::input::handle_event(event);
     }
     wg3d::input::update();
+    wg3d::capture::update(window);
     print_stats();
     if (smoke_frames != 0 && wg3d::stats::screen_updates.load() >= smoke_frames) {
         static bool quitting = false;
@@ -295,6 +299,8 @@ static void reset_audio(uint32_t output_freq) {
 }
 
 // Prints the bring-up counters every 2 seconds (chunk 3.3).
+extern std::atomic<uint32_t> wg3d_fpu_flags;  // src/game/test_hooks.cpp
+
 static void print_stats() {
     static uint64_t last_ticks = SDL_GetTicks64();
     uint64_t now = SDL_GetTicks64();
@@ -314,6 +320,10 @@ static void print_stats() {
             wg3d::stats::audio_out_peak_milli.exchange(0) / 1000.0, wg3d::stats::audio_out_bytes.load(),
             audio_device ? SDL_GetQueuedAudioSize(audio_device) : 0, audio_device,
             audio_device ? (int)SDL_GetAudioDeviceStatus(audio_device) : -1);
+    const uint32_t ff = wg3d_fpu_flags.load();
+    fprintf(stderr, "[wg3d]   fpu flags (main game thread, sticky): 0x%02X%s%s%s%s%s\n", ff,
+            ff & 0x01 ? " invalid" : "", ff & 0x02 ? " denormal-operand" : "", ff & 0x04 ? " divide-by-zero" : "",
+            ff & 0x08 ? " overflow" : "", ff & 0x10 ? " underflow" : "");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -335,6 +345,30 @@ static RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
             fprintf(stderr, "[wg3d] unknown RSP task type %" PRIu32 "\n", task->t.type);
             return nullptr;
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Game threads: FPU flush-to-zero (chunk 4.6).
+// libultra starts every thread with FCSR.FS = 1 (osCreateThread: FPCSR_FS | FPCSR_EV), and this game
+// sets FCSR to 0x01000E00, so on the N64 denormal float results are flushed to zero. The x86
+// equivalent is MXCSR FTZ (bit 15) + DAZ (bit 6), which are per host thread. ultramodern calls
+// get_game_thread_name on each new game thread before its entrypoint runs, so that is where it is set.
+// N64Recomp's set_cop1_cs (fesetround) only changes the rounding bits, so the flags survive the game's
+// FCSR writes. WG3D_FTZ=0 turns this off (for comparisons).
+// ---------------------------------------------------------------------------------------------
+static bool ftz_enabled() {
+    static const bool enabled = [] {
+        const char* v = std::getenv("WG3D_FTZ");
+        return !(v && v[0] == '0');
+    }();
+    return enabled;
+}
+
+static std::string game_thread_name(const OSThread* t) {
+    if (ftz_enabled()) {
+        _mm_setcsr(_mm_getcsr() | 0x8040);  // FTZ | DAZ
+    }
+    return "Game Thread " + std::to_string(t->id);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -373,6 +407,7 @@ int main(int argc, char** argv) {
     setvbuf(stdout, nullptr, _IONBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
     wg3d::crash::install();
+    wg3d::trace::init();
 #ifdef _WIN32
     timeBeginPeriod(1);
     SetConsoleOutputCP(CP_UTF8);
@@ -451,6 +486,8 @@ int main(int argc, char** argv) {
                             .get_connected_device_info = wg3d::input::get_connected_device_info };
     cfg.gfx_callbacks = { .create_gfx = create_gfx, .create_window = create_window, .update_gfx = update_gfx };
     cfg.error_handling_callbacks = { .message_box = message_box };
+    cfg.threads_callbacks = { .get_game_thread_name = game_thread_name };
+    fprintf(stderr, "[wg3d] FPU flush-to-zero on game threads: %s\n", ftz_enabled() ? "on" : "off (WG3D_FTZ=0)");
 
     // No launcher UI: start the game right away. The runtime's game thread waits for this.
     recomp::start_game(game_id, "");

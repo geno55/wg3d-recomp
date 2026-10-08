@@ -48,9 +48,21 @@ set(BASEROM "${CMAKE_SOURCE_DIR}/baserom.us.z64")
 # Code generation. RecompiledFuncs/ and rsp/aspMain.cpp are generated from the ROM; the C file
 # list is globbed with CONFIGURE_DEPENDS so a change in the number of output files reconfigures.
 # ---------------------------------------------------------------------------------------------
+# WG3D_TRACE=ON (use a separate build dir, e.g. WG3D_BUILD_DIR=build/cmake-trace) compiles the trace_mode
+# output in RecompiledFuncsTrace/: every recompiled function calls TRACE_ENTRY()/TRACE_RETURN()
+# (include/trace.h), which records per-function coverage and the per-thread trace ring (chunk 4.2).
+option(WG3D_TRACE "Build the trace/coverage variant of the recompiled code" OFF)
+if(WG3D_TRACE)
+    set(RECOMP_DIR ${CMAKE_SOURCE_DIR}/RecompiledFuncsTrace)
+    set(GEN_CONFIG_ARGS --trace)
+else()
+    set(RECOMP_DIR ${CMAKE_SOURCE_DIR}/RecompiledFuncs)
+    set(GEN_CONFIG_ARGS --no-check)
+endif()
+
 add_custom_command(
-    OUTPUT ${CMAKE_SOURCE_DIR}/RecompiledFuncs/funcs.h ${CMAKE_SOURCE_DIR}/include/wg3d_skipped.h
-    COMMAND ${Python3_EXECUTABLE} tools/gen_config.py --no-check
+    OUTPUT ${RECOMP_DIR}/funcs.h ${CMAKE_SOURCE_DIR}/include/wg3d_skipped.h
+    COMMAND ${Python3_EXECUTABLE} tools/gen_config.py ${GEN_CONFIG_ARGS}
     DEPENDS ${CMAKE_SOURCE_DIR}/syms/wg3d.us.syms.toml
             ${CMAKE_SOURCE_DIR}/syms/dead_ignore.txt
             ${CMAKE_SOURCE_DIR}/tools/gen_config.py
@@ -70,7 +82,7 @@ add_custom_command(
     VERBATIM)
 
 add_custom_target(GenerateRecompiled DEPENDS
-    ${CMAKE_SOURCE_DIR}/RecompiledFuncs/funcs.h
+    ${RECOMP_DIR}/funcs.h
     ${CMAKE_SOURCE_DIR}/include/wg3d_skipped.h
     ${CMAKE_SOURCE_DIR}/rsp/aspMain.cpp)
 
@@ -78,25 +90,25 @@ add_custom_target(GenerateRecompiled DEPENDS
 # WG3DRecompiled: the recompiled game code plus the recompiled audio microcode.
 # ---------------------------------------------------------------------------------------------
 # On a clean tree, generate once at configure time so the glob below sees the real file list.
-if(NOT EXISTS ${CMAKE_SOURCE_DIR}/RecompiledFuncs/funcs.h)
-    message(STATUS "RecompiledFuncs/ missing: running tools/gen_config.py")
-    execute_process(COMMAND ${Python3_EXECUTABLE} tools/gen_config.py --no-check
+if(NOT EXISTS ${RECOMP_DIR}/funcs.h)
+    message(STATUS "${RECOMP_DIR} missing: running tools/gen_config.py ${GEN_CONFIG_ARGS}")
+    execute_process(COMMAND ${Python3_EXECUTABLE} tools/gen_config.py ${GEN_CONFIG_ARGS}
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} RESULT_VARIABLE GEN_RESULT)
     if(NOT GEN_RESULT EQUAL 0)
         message(FATAL_ERROR "tools/gen_config.py failed")
     endif()
 endif()
-file(GLOB FUNC_C_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/RecompiledFuncs/*.c)
+file(GLOB FUNC_C_SOURCES CONFIGURE_DEPENDS ${RECOMP_DIR}/*.c)
 # lookup.cpp: get_entrypoint_address()/get_rom_name(). recomp_overlays.inl (the section/function
 # table) is not compiled here; the runtime glue includes it (Phase 3).
-file(GLOB FUNC_CXX_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/RecompiledFuncs/*.cpp)
+file(GLOB FUNC_CXX_SOURCES CONFIGURE_DEPENDS ${RECOMP_DIR}/*.cpp)
 
 add_library(WG3DRecompiled STATIC ${FUNC_C_SOURCES} ${FUNC_CXX_SOURCES} ${CMAKE_SOURCE_DIR}/rsp/aspMain.cpp)
 add_dependencies(WG3DRecompiled GenerateRecompiled)
 
 target_include_directories(WG3DRecompiled PRIVATE
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/RecompiledFuncs
+    ${RECOMP_DIR}
     ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include
     ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/librecomp/include
     ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/ultramodern/include)
@@ -123,11 +135,15 @@ add_executable(wg3d
     ${CMAKE_SOURCE_DIR}/src/main/trace.cpp
     ${CMAKE_SOURCE_DIR}/src/main/crash_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/main/dl_stats.cpp
+    ${CMAKE_SOURCE_DIR}/src/main/capture.cpp
+    ${CMAKE_SOURCE_DIR}/src/main/frame_log.cpp
     ${CMAKE_SOURCE_DIR}/src/game/pi.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/input.cpp)
+    ${CMAKE_SOURCE_DIR}/src/game/input.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/test_hooks.cpp)
 
 target_include_directories(wg3d PRIVATE
     ${CMAKE_SOURCE_DIR}/include
+    ${RECOMP_DIR}
     ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include
     ${CMAKE_SOURCE_DIR}/lib/rt64/src/contrib
     ${CMAKE_SOURCE_DIR}/lib/rt64/src/contrib/hlslpp/include

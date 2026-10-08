@@ -1,0 +1,25 @@
+description = "Second menu session: Records sub-pages (incl. deleting the pak note with L+R), Setup -> Controls/Audio, Play Season -> Password"
+seconds = 78
+input = [
+    [14.0, "START"],
+    # Records (three down from PLAY GAME); its menu starts on WAYNE GRETZKY
+    [16.5, "Y=-1", 0.2], [17.3, "Y=-1", 0.2], [18.1, "Y=-1", 0.2], [19.5, "A"],
+    [21.5, "Y=-1", 0.2], [22.5, "A"], [26.0, "B"],          # High Scores
+    [27.5, "Y=-1", 0.2], [28.5, "A"], [32.0, "B"],          # Team Stats
+    [33.5, "Y=-1", 0.2], [34.5, "A"], [36.0, "L+R", 0.4], [37.5, "X=1", 0.2], [38.5, "A"], [40.0, "B"],  # Ctlr Pak Notes: L+R, ARE YOU SURE -> YES
+    [41.5, "Y=-1", 0.2], [42.5, "A"], [46.0, "B"], [48.0, "B"],  # Ctlr Pak Stats, back to the main menu
+    # Setup (one down from RECORDS): Controls, Audio
+    [49.5, "Y=-1", 0.2], [51.0, "A"], [53.0, "Y=-1", 0.2], [54.0, "A"], [57.5, "B"],
+    [59.0, "Y=-1", 0.2], [60.0, "A"], [63.5, "B"], [65.5, "B"],
+    # Play Season (three up from SETUP); its menu starts on CONTROLLER PAK: Password is one up.
+    # (B on the password screen returns to the main menu, not the Play Season menu.)
+    [67.0, "Y=1", 0.2], [67.8, "Y=1", 0.2], [68.6, "Y=1", 0.2], [70.0, "A"],
+    [72.0, "Y=1", 0.2], [73.5, "A"],
+]
+env = { WG3D_PFS_LOG = "1" }
+expect = ['osPfsDeleteFile\(channel 0\) -> 0']
+captures = [
+    [21.0, "records_menu"], [25.0, "high_scores"], [31.0, "team_stats"], [35.8, "pak_notes"], [37.2, "pak_notes_delete", "nogolden"], [38.2, "pak_notes_yes", "nogolden"], [39.5, "pak_notes_after", "nogolden"], [45.0, "pak_stats"],
+    [49.0, "menu_records"], [52.5, "setup_menu"], [56.5, "controls"], [62.5, "audio"], [66.5, "menu_setup"],
+    [71.5, "season_menu"], [76.0, "password"],
+]

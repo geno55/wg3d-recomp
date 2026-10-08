@@ -1,0 +1,24 @@
+description = "One session: boot screens, main menu, Setup/Options, Records, Play Season -> Controller Pak restore, then Play Game -> exhibition -> pause"
+seconds = 84
+# B backs out one menu level and the main-menu cursor keeps its position. (B on the main menu itself exits
+# to the title/attract loop, so never press it there.)
+input = [
+    [14.0, "START"],
+    # Setup -> Options, back out (cursor stays on SETUP)
+    [16.5, "Y=-1", 0.2], [17.3, "Y=-1", 0.2], [18.1, "Y=-1", 0.2], [18.9, "Y=-1", 0.2],
+    [20.5, "A"], [22.5, "A"], [26.0, "B"], [28.0, "B"],
+    # Records (one up from SETUP) and its first page, back out
+    [29.5, "Y=1", 0.2], [31.0, "A"], [34.0, "A"], [37.0, "B"], [39.0, "B"],
+    # Play Season (two up from RECORDS) -> Controller Pak (the menu's default entry) -> restore screen, back out
+    [40.5, "Y=1", 0.2], [41.3, "Y=1", 0.2], [43.5, "A"], [46.5, "A"], [49.5, "B"],
+    # Play Game (leaving the pak restore screen resets the main-menu cursor to PLAY GAME) -> players -> team -> line -> game, then pause
+    [54.0, "A"], [57.5, "A"], [60.5, "A"], [63.5, "A"], [79.5, "START"],
+]
+captures = [
+    [4.0, "logos"], [8.0, "legal"], [12.5, "title"], [15.8, "menu"],
+    [21.8, "setup"], [25.0, "options"], [29.0, "menu_setup"],
+    [33.0, "records"], [36.0, "records_gretzky"], [40.0, "menu_records"],
+    [45.5, "season_menu"], [48.5, "pak_restore"], [51.5, "menu_season"],
+    [56.5, "players"], [59.0, "team_select", "nogolden"], [62.0, "line_select", "nogolden"],
+    [67.5, "intro", "nogolden"], [71.5, "rink", "nogolden"], [77.5, "faceoff", "nogolden"], [82.0, "pause", "nogolden"],
+]

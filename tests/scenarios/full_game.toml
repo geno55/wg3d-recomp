@@ -1,0 +1,7 @@
+description = "Exhibition with player 1 idle: one 2:00 period plays out (~2.5 min real time; goals, stoppages, game end), then the Game Statistics screen and what follows it"
+seconds = 215
+input = [[14.0, "START"], [16.0, "A"], [19.0, "A"], [22.0, "A"], [25.0, "A"],
+         [195.0, "A"], [200.0, "A"], [205.0, "A"]]
+captures = [[40.0, "start", "nogolden"], [100.0, "mid", "nogolden"], [160.0, "late", "nogolden"],
+            [190.0, "game_stats", "nogolden"], [198.0, "after_a1", "nogolden"], [203.0, "after_a2", "nogolden"],
+            [212.0, "after_a3", "nogolden"]]

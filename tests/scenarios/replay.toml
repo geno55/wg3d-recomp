@@ -1,0 +1,6 @@
+description = "Exhibition, then Pause -> Replay (instant replay playback), then back to the game"
+seconds = 66
+input = [[14.0, "START"], [16.0, "A"], [19.0, "A"], [22.0, "A"], [25.0, "A"],
+         [40.0, "START"], [42.0, "Y=-1", 0.2], [42.8, "Y=-1", 0.2], [44.0, "A"]]
+captures = [[38.0, "faceoff", "nogolden"], [43.5, "pause_replay", "nogolden"], [47.0, "replay_1", "nogolden"],
+            [52.0, "replay_2", "nogolden"], [57.0, "replay_3", "nogolden"], [64.0, "replay_4", "nogolden"]]

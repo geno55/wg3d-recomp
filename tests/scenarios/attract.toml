@@ -1,0 +1,4 @@
+description = "Five and a half minutes of attract mode with no input (CPU-vs-CPU gameplay, coverage and soak)"
+seconds = 330
+captures = [[60.0, "attract_1m", "nogolden"], [150.0, "attract_2m30", "nogolden"], [240.0, "attract_4m", "nogolden"],
+            [325.0, "attract_5m25", "nogolden"]]

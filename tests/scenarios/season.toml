@@ -1,0 +1,6 @@
+description = "Play Season -> New Short Season -> players -> team -> line -> first game intro"
+seconds = 40
+input = [[14.0, "START"], [15.5, "Y=-1", 0.2], [17.0, "A"], [19.0, "Y=1", 0.2], [19.8, "Y=1", 0.2],
+         [20.6, "Y=1", 0.2], [21.4, "Y=1", 0.2], [22.5, "A"], [25.0, "A"], [28.0, "A"], [31.0, "A"]]
+captures = [[18.5, "season_menu"], [22.0, "season_short"], [24.0, "season_players"],
+            [26.5, "season_team", "nogolden"], [29.5, "season_line", "nogolden"], [38.0, "season_game", "nogolden"]]

@@ -38,39 +38,44 @@ stubs = []
 [[patches.hook]]
 func = "func_8001E7B8"
 before_vram = 0x8001E844
-text = "yield_self_1ms(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
+text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
 
 [[patches.hook]]
 func = "func_8001FCA0"
 before_vram = 0x8001FDC0
-text = "yield_self_1ms(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
+text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
 
 [[patches.hook]]
 func = "func_80022EF4"
 before_vram = 0x800231B4
-text = "yield_self_1ms(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
+text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
 
 [[patches.hook]]
 func = "func_8002C6DC"
 before_vram = 0x8002C6F4
-text = "yield_self_1ms(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
+text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
 
 [[patches.hook]]
 func = "func_8002C738"
 before_vram = 0x8002C75C
-text = "yield_self_1ms(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
+text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
 
 [[patches.hook]]
 func = "func_80048770"
 before_vram = 0x800487B8
-text = "yield_self_1ms(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
+text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
 
 [[patches.hook]]
 func = "func_80048F98"
 before_vram = 0x80048FD8
-text = "yield_self_1ms(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
+text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
 
 [[patches.hook]]
 func = "func_800651D0"
 before_vram = 0x80065200
-text = "yield_self_1ms(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
+text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
+
+[[patches.hook]]
+func = "func_80047E5C"
+before_vram = 0x80047F50
+text = "wg3d_seed_override(rdram, ctx); /* wg3d: WG3D_FIXED_SEED (chunk 4.6) */"

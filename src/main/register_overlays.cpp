@@ -1,6 +1,7 @@
-// Registers N64Recomp's section/function table (RecompiledFuncs/recomp_overlays.inl) with librecomp,
+// Registers N64Recomp's section/function table (recomp_overlays.inl from RecompiledFuncs/, or
+// RecompiledFuncsTrace/ in WG3D_TRACE builds; CMake puts the right one on the include path) with librecomp,
 // which uses it to resolve indirect calls (get_function / LOOKUP_FUNC).
-#include "../../RecompiledFuncs/recomp_overlays.inl"
+#include "recomp_overlays.inl"
 
 #include "librecomp/overlays.hpp"
 

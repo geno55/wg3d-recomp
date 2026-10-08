@@ -13,6 +13,7 @@
 #include "ultramodern/ultramodern.hpp"
 
 #include "wg3d_crash.h"
+#include "wg3d_frame_log.h"
 #include "wg3d_render.h"
 #include "wg3d_stats.h"
 
@@ -205,6 +206,7 @@ wg3d::renderer::RT64Context::~RT64Context() = default;
 void wg3d::renderer::RT64Context::send_dl(const OSTask* task) {
     wg3d::stats::display_lists++;
     wg3d::stats::summarize_dl(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
+    wg3d::framelog::on_display_list(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
     app->state->rsp->reset();
     app->interpreter->loadUCodeGBI(task->t.ucode & 0x3FFFFFF, task->t.ucode_data & 0x3FFFFFF, true);
     app->processDisplayLists(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF, 0, true);
@@ -219,6 +221,7 @@ void wg3d::renderer::RT64Context::update_screen() {
     wg3d::stats::screen_updates++;
     static uint32_t last_origin = 0;
     uint32_t origin = ultramodern::renderer::get_vi_regs()->VI_ORIGIN_REG;
+    wg3d::framelog::on_screen_update(origin);
     if (origin != last_origin) {
         last_origin = origin;
         wg3d::stats::origin_changes++;
