@@ -16,7 +16,7 @@ Pak. A correctness pass is in progress.
 ## Requirements (Windows)
 - Visual Studio 2022 Build Tools with clang-cl, Windows SDK 10.0.26100 (RT64's D3D12 backend needs it)
 - CMake, Ninja, Git
-- Python 3.11+ with `rabbitizer`, `numpy`, `pillow` (the symbol-recovery tools also use `splat64`/`spimdisasm`
+- Python 3.11+ with `rabbitizer`, `pyelftools`, `xxhash`, `numpy`, `pillow` (the symbol-recovery tools also use `splat64`/`spimdisasm`
   and Ghidra, but their outputs are committed in `syms/`, so they aren't needed to build)
 
 ## Build
