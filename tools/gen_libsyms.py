@@ -276,8 +276,7 @@ def main() -> int:
         md.append(f"| `{n}` | " + ", ".join(f"`{names.get(c, f'func_{c:08X}')}` ({'live' if lv else 'dead'})" for c, lv in cs) + " |")
     md += ["", "Dead library functions for Phase 2 `[patches] ignored`: "
            + ", ".join(f"`{names.get(c, f'func_{c:08X}')}`" for c in dead_to_ignore), ""]
-    (ROOT / "build").mkdir(exist_ok=True)
-    (ROOT / "build" / "dead_ignore.txt").write_text("\n".join(names.get(c, f"func_{c:08X}") for c in dead_to_ignore) + "\n")
+    (ROOT / "syms" / "dead_ignore.txt").write_text("\n".join(names.get(c, f"func_{c:08X}") for c in dead_to_ignore) + "\n")
 
     md += ["## Gaps for Phase 2/3", ""]
     if gaps:

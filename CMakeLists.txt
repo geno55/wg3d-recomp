@@ -52,7 +52,7 @@ add_custom_command(
     OUTPUT ${CMAKE_SOURCE_DIR}/RecompiledFuncs/funcs.h ${CMAKE_SOURCE_DIR}/include/wg3d_skipped.h
     COMMAND ${Python3_EXECUTABLE} tools/gen_config.py --no-check
     DEPENDS ${CMAKE_SOURCE_DIR}/syms/wg3d.us.syms.toml
-            ${CMAKE_SOURCE_DIR}/build/dead_ignore.txt
+            ${CMAKE_SOURCE_DIR}/syms/dead_ignore.txt
             ${CMAKE_SOURCE_DIR}/tools/gen_config.py
             ${CMAKE_SOURCE_DIR}/tools/hw_audit.py
             ${BASEROM}

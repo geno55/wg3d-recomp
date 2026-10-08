@@ -91,10 +91,10 @@ def check_library() -> list[str]:
 def trial_recompile() -> list[str]:
     errs = []
     TRIAL.mkdir(parents=True, exist_ok=True)
-    dead = [n for n in (ROOT / "build" / "dead_ignore.txt").read_text().split() if n]
+    dead = [n for n in (ROOT / "syms" / "dead_ignore.txt").read_text().split() if n]
     cfg = [
         "# Phase 1.8 trial: entrypoint + symbols; dead library code that calls unimplemented skipped",
-        "# functions is ignored (list from tools/gen_libsyms.py -> build/dead_ignore.txt).",
+        "# functions is ignored (list from tools/gen_libsyms.py -> syms/dead_ignore.txt).",
         "[input]",
         f"entrypoint = 0x{TEXT_START:08X}",
         'symbols_file_path = "../../syms/wg3d.us.syms.toml"',

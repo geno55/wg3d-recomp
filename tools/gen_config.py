@@ -2,7 +2,7 @@
 
 Inputs come from earlier chunks so nothing is hand-copied:
   syms/wg3d.us.syms.toml        function list (1.6)
-  build/dead_ignore.txt         dead library code to ignore (1.3/1.8, tools/gen_libsyms.py)
+  syms/dead_ignore.txt          dead library code to ignore (1.3/1.8, tools/gen_libsyms.py)
   tools/hw_audit.py DECISIONS   functions to stub (2.1; currently none)
   tools/find_spinloops.py       busy-wait loops that get a yield hook (3.3; SPIN_FLAGS below)
 
@@ -69,7 +69,7 @@ def spin_hooks():
 
 
 def write_config(trace: bool) -> None:
-    ignored = [n for n in (ROOT / "build" / "dead_ignore.txt").read_text().split() if n]
+    ignored = [n for n in (ROOT / "syms" / "dead_ignore.txt").read_text().split() if n]
     stubs = sorted(f for f, (d, _) in DECISIONS.items() if d == "stub")
     flag_notes = "".join(f"#   {a:08X}: {why}\n" for a, why in sorted(SPIN_FLAGS.items()))
     hook_text = "".join(f'''
@@ -96,7 +96,7 @@ trace_mode = {'true' if trace else 'false'}
 [patches]
 # Library functions that are dead after recompilation (only reachable through functions N64Recomp
 # skips) but call skipped functions with no runtime implementation; ignoring them avoids link errors.
-# Source: build/dead_ignore.txt (docs/libultra_coverage.md, "Link-level gaps").
+# Source: syms/dead_ignore.txt (docs/libultra_coverage.md, "Link-level gaps").
 ignored = {toml_list(ignored)}
 
 # No compiled function accesses hardware directly (docs/hw_audit.md), so nothing is stubbed or patched.

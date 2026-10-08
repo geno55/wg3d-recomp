@@ -146,7 +146,7 @@ def main() -> int:
     funcs = sorted((f["vram"], f["size"], f["name"]) for f in syms["section"][0]["functions"])
     sl = ROOT / "lib/N64Recomp/src/symbol_lists.cpp"
     skipped = list_from_cpp(sl, "reimplemented_funcs") | list_from_cpp(sl, "ignored_funcs")
-    dead = set((ROOT / "build" / "dead_ignore.txt").read_text().split())
+    dead = set((ROOT / "syms" / "dead_ignore.txt").read_text().split())
     compiled = [f for f in funcs if f[2] not in skipped and f[2] not in dead]
     jtbl_targets = set()
     for r in csv.DictReader(open(ROOT / "build" / "splat_jtbls.csv")):

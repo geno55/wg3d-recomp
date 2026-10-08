@@ -1,0 +1,9 @@
+__osPfsReleasePages
+__osBlockSum
+__osPfsDeclearPage
+__osClearPage
+func_8009A778
+func_8009A838
+kdebugserver_text_0220
+kdebugserver_text_026C
+__osSyncPutChars

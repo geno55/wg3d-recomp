@@ -16,7 +16,7 @@ trace_mode = false
 [patches]
 # Library functions that are dead after recompilation (only reachable through functions N64Recomp
 # skips) but call skipped functions with no runtime implementation; ignoring them avoids link errors.
-# Source: build/dead_ignore.txt (docs/libultra_coverage.md, "Link-level gaps").
+# Source: syms/dead_ignore.txt (docs/libultra_coverage.md, "Link-level gaps").
 ignored = [
     "__osPfsReleasePages",
     "__osBlockSum",
