@@ -50,6 +50,12 @@ Settings live next to the saves and are created with defaults on first run; edit
 
 Verification scripts: `tools/verify_*.py`.
 
+## License
+This project's own code (`src/`, `include/`, `tools/`, configs, docs) is MIT-licensed; see [LICENSE](LICENSE).
+The submodules keep their own licenses. N64ModernRuntime is GPL-3.0 and is linked into `wg3d.exe`, so built
+binaries are distributed under the GPL-3.0. The game itself is not covered: its code and data belong to their
+rights holders, and nothing derived from the ROM is in this repository.
+
 ## Runtime patches
 `lib/N64ModernRuntime` is pinned to sonicdcer's `controller_pak_super_rebase` branch (Controller Pak support);
 `patches/runtime/` holds this project's two changes on top (VI null-mode fix, per-port paks + pak call log).
