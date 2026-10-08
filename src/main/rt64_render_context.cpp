@@ -13,6 +13,7 @@
 #include "ultramodern/ultramodern.hpp"
 
 #include "wg3d_crash.h"
+#include "wg3d_capture.h"
 #include "wg3d_frame_log.h"
 #include "wg3d_render.h"
 #include "wg3d_stats.h"
@@ -207,6 +208,9 @@ void wg3d::renderer::RT64Context::send_dl(const OSTask* task) {
     wg3d::stats::display_lists++;
     wg3d::stats::summarize_dl(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
     wg3d::framelog::on_display_list(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
+    if (!wg3d::capture::render_needed()) {
+        return;  // fast test run, no capture coming up (wg3d_capture.h)
+    }
     app->state->rsp->reset();
     app->interpreter->loadUCodeGBI(task->t.ucode & 0x3FFFFFF, task->t.ucode_data & 0x3FFFFFF, true);
     app->processDisplayLists(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF, 0, true);
@@ -226,7 +230,9 @@ void wg3d::renderer::RT64Context::update_screen() {
         last_origin = origin;
         wg3d::stats::origin_changes++;
     }
-    app->updateScreen();
+    if (wg3d::capture::render_needed()) {
+        app->updateScreen();
+    }
 }
 
 void wg3d::renderer::RT64Context::shutdown() {

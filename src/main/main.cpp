@@ -3,7 +3,7 @@
 // lookup), without its RmlUi launcher: the ROM comes from the command line (or the copy the runtime
 // stored on a previous run) and the game starts immediately.
 //
-// Usage: wg3d.exe [--frames N] [--data-dir DIR] [--console] [path/to/rom.{z64,v64,n64}]
+// Usage: wg3d.exe [--frames N] [--speed N] [--data-dir DIR] [--console] [path/to/rom.{z64,v64,n64}]
 #include <array>
 #include <atomic>
 #include <cinttypes>
@@ -50,6 +50,8 @@ static std::u8string game_id = u8"wg3d.us";
 // Set from the command line in main() (chunk 3.7).
 static uint64_t smoke_frames = 0;
 static std::filesystem::path data_dir_override;
+// --speed N: run the game N times faster than real time (test runs). Audio is muted when N > 1.
+static uint32_t speed = 1;
 
 [[noreturn]] static void exit_error(const std::string& msg) {
     fprintf(stderr, "%s\n", msg.c_str());
@@ -98,6 +100,7 @@ static ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callba
     // Before the game thread starts, so pads present at launch are on their ports for osContInit.
     wg3d::input::init();
     wg3d::capture::init();
+    wg3d::capture::set_render_only_for_captures(speed > 1);
 #if defined(_WIN32)
     return ultramodern::renderer::WindowHandle{ wm_info.info.win.window, GetCurrentThreadId() };
 #else
@@ -137,7 +140,8 @@ static void update_gfx(void*) {
     wg3d::input::update();
     wg3d::capture::update(window);
     print_stats();
-    if (smoke_frames != 0 && wg3d::stats::screen_updates.load() >= smoke_frames) {
+    // Counted in game time (VIs since the game started), so --frames means the same at any --speed.
+    if (smoke_frames != 0 && wg3d::input::script_time() * 60.0 >= (double)smoke_frames) {
         static bool quitting = false;
         if (!quitting) {
             quitting = true;
@@ -210,6 +214,9 @@ static void queue_samples(int16_t* audio_data, size_t sample_count) {
     wg3d::stats::audio_peak = std::max<uint64_t>(wg3d::stats::audio_peak.load(), (uint64_t)peak);
     wg3d::stats::audio_samples += sample_count;
     dump_audio(audio_data, sample_count);
+    if (speed > 1) {
+        return;  // N times too much audio per second; would only fill the queue
+    }
     static std::vector<float> swap_buffer;
     static std::array<float, duplicated_input_frames * input_channels> duplicated_sample_buffer;
 
@@ -351,6 +358,11 @@ static RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
                 return nullptr;
             }
             wg3d::stats::audio_tasks++;
+            // --speed: audio is muted and the game's logic never reads the mixed samples, so skip the RSP
+            // audio work, which is otherwise what limits the speed. The task completes as "broke" (done).
+            if (speed > 1) {
+                return [](uint8_t*, uint32_t) { return RspExitReason::Broke; };
+            }
             return aspMain;
         default:
             fprintf(stderr, "[wg3d] unknown RSP task type %" PRIu32 "\n", task->t.type);
@@ -399,8 +411,9 @@ static void message_box(const char* msg) {
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 gpr get_entrypoint_address();
 
-// Command line (chunk 3.7): wg3d.exe [--frames N] [--data-dir DIR] [--console] [rom]
-//   --frames N      smoke-test mode: quit cleanly after N VI frames (screen updates); no crash dialog
+// Command line (chunk 3.7): wg3d.exe [--frames N] [--speed N] [--data-dir DIR] [--console] [rom]
+//   --frames N      smoke-test mode: quit cleanly after N VIs of game time (since the game started); no dialogs
+//   --speed N       run the game N times faster than real time, audio muted (tools/run_scenario.py)
 //   --data-dir DIR  config/save/ROM-store folder instead of %APPDATA%\WG3DRecomp (keeps tests off real saves)
 //   --console       also show the output in a console (5.2: the GUI build has none). Output always goes
 //                   to <app folder>/logs/wg3d.log, and to stdout/stderr when a parent redirects them.
@@ -424,12 +437,14 @@ int main(int argc, char** argv) {
         std::string arg = argv[i];
         if (arg == "--frames" && i + 1 < argc) {
             smoke_frames = std::strtoull(argv[++i], nullptr, 10);
+        } else if (arg == "--speed" && i + 1 < argc) {
+            speed = std::max(1u, (uint32_t)std::strtoul(argv[++i], nullptr, 10));
         } else if (arg == "--data-dir" && i + 1 < argc) {
             data_dir_override = std::filesystem::absolute(argv[++i]);
         } else if (arg == "--console") {
             want_console = true;
         } else if (arg.rfind("--", 0) == 0) {
-            exit_error("Unknown option: " + arg + "\nUsage: wg3d.exe [--frames N] [--data-dir DIR] [--console] [rom]");
+            exit_error("Unknown option: " + arg + "\nUsage: wg3d.exe [--frames N] [--speed N] [--data-dir DIR] [--console] [rom]");
         } else {
             rom_arg = arg;
         }
@@ -506,6 +521,12 @@ int main(int argc, char** argv) {
     cfg.gfx_callbacks = { .create_gfx = create_gfx, .create_window = create_window, .update_gfx = update_gfx };
     cfg.error_handling_callbacks = { .message_box = message_box };
     cfg.threads_callbacks = { .get_game_thread_name = game_thread_name };
+    // Game-time clock for input scripts, captures and the frame log (wg3d::input::script_time).
+    cfg.events_callbacks = { .vi_callback = [] { wg3d::input::on_vi(); wg3d::capture::on_vi(); } };
+    if (speed > 1) {
+        ultramodern::set_speed_multiplier(speed);
+        fprintf(stderr, "[wg3d] speed: %ux real time, audio muted\n", speed);
+    }
     fprintf(stderr, "[wg3d] FPU flush-to-zero on game threads: %s\n", ftz_enabled() ? "on" : "off (WG3D_FTZ=0)");
 
     // No launcher UI: start the game right away. The runtime's game thread waits for this.

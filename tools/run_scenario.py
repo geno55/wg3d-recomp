@@ -18,8 +18,14 @@ Scenario file:
     ares = true                           # optional: false if the scenario can't run on ares
     pak = true                            # optional: false to start without a Controller Pak
 
-Times are seconds on wg3d's input clock (wg3d::input::script_time, from window creation). ares boots
-about ARES_OFFSET seconds later (it runs the PIF/IPL boot), so its events are shifted by that much.
+Times are seconds from window creation. wg3d's clock (wg3d::input::script_time) counts VIs from game
+start, which is about GAME_START seconds after the window opens, so the harness subtracts that. ares
+boots about ARES_OFFSET seconds after its window opens (it runs the PIF/IPL boot), so its events are
+shifted by that much.
+
+Speed: wg3d runs --speed 10 by default: VIs in lockstep with the game, rendering only just before each
+capture, audio muted, and the game held on each capture's exact VI (src/main/capture.cpp). Sessions run
+--jobs 3 at a time. --speed 1 --jobs 1 is the old real-time behaviour; --frame-log forces --speed 1.
 
 Outputs (ROM-derived, git-ignored):
     build/scen/<name>/wg3d/<label>.png, build/scen/<name>/ares/<label>.png, build/scen/<name>/compare.png
@@ -31,11 +37,13 @@ never lands in another application. Don't use the mouse or keyboard during an ar
 
 Usage:
     python tools/run_scenario.py all|<name>... [--target wg3d|ares|both] [--interactive] [--update-goldens]
+                                 [--speed N] [--jobs N]
     python tools/run_scenario.py --list
     python tools/run_scenario.py all --exe build/cmake-trace/wg3d.exe --coverage   (chunk 4.2 coverage)
 Exit code 1 if any wg3d run fails (errors, missing expects, golden mismatch).
 """
 import argparse
+import concurrent.futures
 import ctypes
 import os
 import re
@@ -59,6 +67,9 @@ SCEN_DIR = ROOT / "tests" / "scenarios"
 OUT = BUILD / "scen"
 GOLDEN = BUILD / "ref" / "scen"
 ARES_OFFSET = 2.5
+# wg3d's game starts ~0.4 s after its window opens ("[wg3d] game started ..." in its log); scenario times
+# were recorded from window creation.
+GAME_START = 0.4
 ERROR_PATTERNS = re.compile(r"CRASH|Failed to find function|exited unexpectedly|UnhandledJumpTarget|"
                             r"unknown RSP task|unexpected audio ucode|Assertion|No registered RSP ucode|capture: .* FAILED")
 
@@ -90,17 +101,21 @@ def load(name):
     return sc
 
 
+def game_time(t):
+    return round(max(0.0, t - GAME_START), 3)
+
+
 def input_script(sc):
     parts = []
     for ev in sc["input"]:
-        parts.append(f"{ev[0]}:{ev[1]}" + (f":{ev[2]}" if len(ev) > 2 else ""))
+        parts.append(f"{game_time(ev[0])}:{ev[1]}" + (f":{ev[2]}" if len(ev) > 2 else ""))
     return ";".join(parts)
 
 
 # ---------------------------------------------------------------------------------------------
 # wg3d
 # ---------------------------------------------------------------------------------------------
-def run_wg3d(sc, update_goldens, exe=EXE, coverage=False, frame_log=False, extra_env=None, tag=""):
+def run_wg3d(sc, update_goldens, exe=EXE, coverage=False, frame_log=False, extra_env=None, tag="", speed=1):
     name = sc["name"]
     out_root = OUT / (name + (f"@{tag}" if tag else ""))
     out = out_root / "wg3d"
@@ -113,7 +128,7 @@ def run_wg3d(sc, update_goldens, exe=EXE, coverage=False, frame_log=False, extra
     env.update({k: str(v) for k, v in sc["env"].items()})
     env.update(extra_env or {})
     env["WG3D_INPUT_SCRIPT"] = input_script(sc)
-    env["WG3D_CAPTURE"] = ",".join(f"{c[0]}:{c[1]}" for c in sc["captures"])
+    env["WG3D_CAPTURE"] = ",".join(f"{game_time(c[0])}:{c[1]}" for c in sc["captures"])
     env["WG3D_CAPTURE_DIR"] = str(out)
     if not sc["pak"]:
         env["WG3D_PAKS"] = "none"
@@ -123,10 +138,10 @@ def run_wg3d(sc, update_goldens, exe=EXE, coverage=False, frame_log=False, extra
         env["WG3D_FRAME_LOG"] = str(out_root / "frames.log")
     err_path = out_root / "wg3d.err.txt"
     with open(err_path, "w") as err, open(out_root / "wg3d.out.txt", "w") as so:
-        proc = subprocess.Popen([str(exe), "--frames", str(int(sc["seconds"] * 60)), "--data-dir", str(data), str(ROM)],
-                                cwd=exe.parent, env=env, stdout=so, stderr=err)
+        proc = subprocess.Popen([str(exe), "--frames", str(int(sc["seconds"] * 60)), "--speed", str(speed),
+                                 "--data-dir", str(data), str(ROM)], cwd=exe.parent, env=env, stdout=so, stderr=err)
         try:
-            code = proc.wait(timeout=sc["seconds"] + 60)
+            code = proc.wait(timeout=sc["seconds"] + 60)  # real time is the worst case at any speed
         except subprocess.TimeoutExpired:
             proc.kill()
             code = "timeout"
@@ -456,7 +471,12 @@ def main() -> int:
                     help="write build/scen/<name>/frames.log for tools/frame_pacing.py (chunk 4.4)")
     ap.add_argument("--coverage", action="store_true",
                     help="write build/scen/<name>/coverage.txt (needs a WG3D_TRACE build, see --exe)")
+    ap.add_argument("--speed", type=int, default=10, help="wg3d game speed (1 = real time)")
+    ap.add_argument("--jobs", type=int, default=3, help="wg3d sessions to run at once")
     args = ap.parse_args()
+    if args.frame_log and args.speed != 1:
+        print("--frame-log measures real-time pacing: using --speed 1")
+        args.speed = 1
 
     all_names = sorted(p.stem for p in SCEN_DIR.glob("*.toml"))
     if args.list or not args.names:
@@ -469,18 +489,26 @@ def main() -> int:
         return 2
 
     failed = False
+    start = time.time()
+    if args.target in ("wg3d", "both"):
+        # Each session has its own process, data folder and output folder, so they can run side by side.
+        extra = dict(kv.split("=", 1) for kv in args.env)
+
+        def one(n):
+            t = time.time()
+            problems, results = run_wg3d(load(n), args.update_goldens, args.exe.resolve(), args.coverage,
+                                         args.frame_log, extra, args.tag, args.speed)
+            return n, problems, results, time.time() - t
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+            for n, problems, results, secs in pool.map(one, names):
+                status = "ok" if not problems else "FAIL"
+                print(f"[{status}] {n} wg3d ({secs:.0f}s) " + ", ".join(f"{k}: {v}" for k, v in results.items()))
+                for p in problems:
+                    print(f"    {p}")
+                failed |= bool(problems)
     for n in names:
         sc = load(n)
-        if args.target in ("wg3d", "both"):
-            t = time.time()
-            extra = dict(kv.split("=", 1) for kv in args.env)
-            problems, results = run_wg3d(sc, args.update_goldens, args.exe.resolve(), args.coverage, args.frame_log,
-                                         extra, args.tag)
-            status = "ok" if not problems else "FAIL"
-            print(f"[{status}] {n} wg3d ({time.time() - t:.0f}s) " + ", ".join(f"{k}: {v}" for k, v in results.items()))
-            for p in problems:
-                print(f"    {p}")
-            failed |= bool(problems)
         if args.target in ("ares", "both"):
             if not sc["ares"]:
                 print(f"[skip] {n} ares (scenario not runnable on ares)")
@@ -490,6 +518,7 @@ def main() -> int:
         sheet = side_by_side(sc) if not args.tag else None
         if sheet:
             print(f"    -> {sheet.relative_to(ROOT)}")
+    print(f"total {time.time() - start:.0f}s (speed {args.speed}, {args.jobs} jobs)")
     return 1 if failed else 0
 
 

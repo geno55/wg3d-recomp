@@ -22,8 +22,11 @@ namespace wg3d::input {
     void init();
     void handle_event(const SDL_Event& event);
     void update();  // snapshots all ports; called after the event pump
-    // Seconds since init(): the clock WG3D_INPUT_SCRIPT times are measured on (also used by WG3D_CAPTURE).
+    // Game time in seconds (VIs since the game started / 60): the clock for WG3D_INPUT_SCRIPT, WG3D_CAPTURE
+    // and WG3D_FRAME_LOG. Independent of --speed and of host load.
     double script_time();
+    // ultramodern's per-VI callback (events_callbacks.vi_callback, on the VI thread): advances script_time.
+    void on_vi();
 
     // ultramodern input callbacks (called from game threads; read the snapshot).
     void poll_input();

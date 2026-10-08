@@ -1,0 +1,228 @@
+diff --git a/ultramodern/include/ultramodern/ultramodern.hpp b/ultramodern/include/ultramodern/ultramodern.hpp
+index 46aea61..3ee7d75 100644
+--- a/ultramodern/include/ultramodern/ultramodern.hpp
++++ b/ultramodern/include/ultramodern/ultramodern.hpp
+@@ -101,6 +101,14 @@ bool is_entrypoint_thread();
+ bool is_game_thread();
+ void submit_rsp_task(RDRAM_ARG PTR(OSTask) task);
+ void send_si_message();
++// wg3d (patch 0003): the idle thread's wait; is_game_idle() is true while it waits with nothing queued.
++void wait_for_external_message_idle(RDRAM_ARG1);
++// Lockstep mode: advances osGetTime/osGetCount by one VI (called by the VI thread).
++void lockstep_vi();
++bool is_game_idle();
++// Runs the game N times faster than real time (VIs, timers, osGetTime), with VIs in lockstep with the
++// game instead of on the wall clock. Call before start.
++void set_speed_multiplier(uint32_t multiplier);
+ uint32_t get_speed_multiplier();
+ 
+ // Time
+diff --git a/ultramodern/src/events.cpp b/ultramodern/src/events.cpp
+index c369421..7cd031a 100644
+--- a/ultramodern/src/events.cpp
++++ b/ultramodern/src/events.cpp
+@@ -19,6 +19,10 @@
+ #include "ultramodern/renderer_context.hpp"
+ 
+ static ultramodern::events::callbacks_t events_callbacks{};
++// wg3d (patch 0003): graphics and other RSP tasks queued or running; in speed mode the VI thread waits
++// for both to be 0 (and the game to be idle) before each VI.
++static std::atomic<int> gfx_tasks_pending{ 0 };
++static std::atomic<int> sp_tasks_pending{ 0 };
+ 
+ void ultramodern::events::set_callbacks(const ultramodern::events::callbacks_t& callbacks) {
+     events_callbacks = callbacks;
+@@ -196,6 +200,45 @@ void vi_thread_func() {
+     int remaining_retraces = 1;
+ 
+     while (!exited) {
++        // wg3d (patch 0003): with a speed multiplier, run in lockstep instead of on the wall clock. Each VI
++        // waits until the game has finished with the previous one and is never skipped, so the game sees
++        // the same sequence of VIs at any speed (test runs), at most `multiplier` times faster than real time.
++        if (ultramodern::get_speed_multiplier() > 1) {
++            using clock = std::chrono::high_resolution_clock;
++            static clock::time_point last_vi = clock::now();
++            const auto period = std::chrono::duration_cast<clock::duration>(1000000us / (60 * ultramodern::get_speed_multiplier()));
++            // Wait until the game has finished everything the previous VI started: no graphics or RSP
++            // task pending and every game thread blocked (the idle thread waiting for a message). At 1x
++            // that always happens well within a VI; at speed it keeps VIs from being dropped. Capped at
++            // 2 s (reported) so a game that never goes idle can't stall the VI thread.
++            if (ultramodern::is_game_started()) {
++                const auto give_up = clock::now() + 2s;
++                auto busy = [] {
++                    return gfx_tasks_pending.load() != 0 || sp_tasks_pending.load() != 0 || !ultramodern::is_game_idle();
++                };
++                // Must stay idle for a short while: a thread handoff can look idle for an instant.
++                auto idle_since = clock::now();
++                while (!exited && clock::now() < give_up) {
++                    if (busy()) {
++                        idle_since = clock::now();
++                    } else if (clock::now() - idle_since > 200us) {
++                        break;
++                    }
++                    std::this_thread::yield();
++                }
++                if (!exited && clock::now() >= give_up) {
++                    fprintf(stderr, "[ultramodern] lockstep: VI %" PRIu64 " sent after 2 s without the game going idle (gfx %d, sp %d, idle %d)\n",
++                            total_vis, gfx_tasks_pending.load(), sp_tasks_pending.load(), (int)ultramodern::is_game_idle());
++                }
++            }
++            last_vi += period;
++            ultramodern::sleep_until(last_vi);
++            if (clock::now() - last_vi > 4 * period) {
++                last_vi = clock::now();  // fell behind (rendering): don't catch up with a burst
++            }
++            total_vis++;
++            ultramodern::lockstep_vi();
++        } else {
+         // Determine the next VI time (more accurate than adding 16ms each VI interrupt)
+         auto next = ultramodern::get_start() + (total_vis * 1000000us) / (60 * ultramodern::get_speed_multiplier());
+         //if (next > std::chrono::high_resolution_clock::now()) {
+@@ -219,6 +262,7 @@ void vi_thread_func() {
+             //printf("Skipped % " PRId64 " frames in VI interupt thread!\n", new_total_vis - total_vis - 1);
+         }
+         total_vis = new_total_vis;
++        }
+ 
+         // If the game hasn't started yet, set a dummy VI mode and origin.
+         if (!ultramodern::is_game_started()) {
+@@ -297,6 +341,7 @@ void task_thread_func(uint8_t* rdram, moodycamel::LightweightSemaphore* thread_r
+ 
+         // Tell the game that the RSP has completed
+         sp_complete();
++        sp_tasks_pending--;
+     }
+ }
+ 
+@@ -381,6 +426,7 @@ void gfx_thread_func(uint8_t* rdram, moodycamel::LightweightSemaphore* thread_re
+                 [[maybe_unused]] auto renderer_end = std::chrono::high_resolution_clock::now();
+ 
+                 dp_complete();
++                gfx_tasks_pending--;
+                 // TODO hook the parsed event up to the actual parsing point when a callback is added to RT64.
+                 ultramodern::extensions::on_displaylist_parsed(displaylist);
+                 ultramodern::extensions::on_displaylist_completed(displaylist);
+@@ -569,10 +615,12 @@ void ultramodern::submit_rsp_task(RDRAM_ARG PTR(OSTask) task_) {
+ 
+     // Send gfx tasks to the graphics action queue
+     if (task->t.type == M_GFXTASK) {
++        gfx_tasks_pending++;
+         events_context.action_queue.enqueue(SpTaskAction{ *task });
+     }
+     // Set all other tasks as the RSP task
+     else {
++        sp_tasks_pending++;
+         events_context.sp_task_queue.enqueue(task);
+     }
+ }
+diff --git a/ultramodern/src/mesgqueue.cpp b/ultramodern/src/mesgqueue.cpp
+index 9944a02..86fcc77 100644
+--- a/ultramodern/src/mesgqueue.cpp
++++ b/ultramodern/src/mesgqueue.cpp
+@@ -58,6 +58,30 @@ void ultramodern::wait_for_external_message(RDRAM_ARG1) {
+     }
+ }
+ 
++// wg3d (patch 0003): the idle thread (pause_self) waits here, so while it does, every other game thread
++// is blocked. is_game_idle() is used by the VI thread's lockstep mode (speed multiplier > 1).
++static std::atomic<bool> idle_waiting{ false };
++// The last message the idle thread took couldn't be delivered (its queue is full) and was requeued. It
++// stays queued until a game thread drains that queue, which needs the next VI, so it doesn't count as work.
++static std::atomic<bool> undeliverable{ false };
++
++void ultramodern::wait_for_external_message_idle(RDRAM_ARG1) {
++    QueuedMessage to_send;
++    idle_waiting = true;
++    external_messages.wait_dequeue(to_send);
++    idle_waiting = false;
++    if (do_send(PASS_RDRAM to_send.mq, to_send.mesg, to_send.jam, false)) {
++        undeliverable = false;
++    } else if (to_send.requeue_if_blocked) {
++        undeliverable = true;
++        external_messages.enqueue(to_send);
++    }
++}
++
++bool ultramodern::is_game_idle() {
++    return idle_waiting.load() && (external_messages.size_approx() == 0 || undeliverable.load());
++}
++
+ void ultramodern::wait_for_external_message_timed(RDRAM_ARG u32 millis) {
+     QueuedMessage to_send;
+     if (external_messages.wait_dequeue_timed(to_send, std::chrono::milliseconds{millis})) {
+diff --git a/ultramodern/src/scheduling.cpp b/ultramodern/src/scheduling.cpp
+index a22f747..b1a71cc 100644
+--- a/ultramodern/src/scheduling.cpp
++++ b/ultramodern/src/scheduling.cpp
+@@ -32,7 +32,7 @@ void ultramodern::check_running_queue(RDRAM_ARG1) {
+ extern "C" void pause_self(RDRAM_ARG1) {
+     while (true) {
+         // Wait until an external message arrives, then allow the next thread to run.
+-        ultramodern::wait_for_external_message(PASS_RDRAM1);
++        ultramodern::wait_for_external_message_idle(PASS_RDRAM1);
+         ultramodern::check_running_queue(PASS_RDRAM1);
+     }
+ }
+diff --git a/ultramodern/src/timer.cpp b/ultramodern/src/timer.cpp
+index ee26c45..d947235 100644
+--- a/ultramodern/src/timer.cpp
++++ b/ultramodern/src/timer.cpp
+@@ -1,3 +1,5 @@
++#include <algorithm>
++#include <atomic>
+ #include <thread>
+ #include <variant>
+ #include <set>
+@@ -15,10 +17,10 @@
+ static std::chrono::high_resolution_clock::time_point start_time = std::chrono::high_resolution_clock::now();
+ // Offset of the duration since program start used to calculate the value for osGetTime. 
+ static int64_t ostime_offset = 0;
+-// Game speed multiplier (1 means no speedup)
+-constexpr uint32_t speed_multiplier = 1;
++// Game speed multiplier (1 means no speedup). Settable before the game starts (set_speed_multiplier).
++static uint32_t speed_multiplier = 1;
+ // N64 CPU counter ticks per millisecond
+-constexpr uint32_t counter_per_ms = 46'875 * speed_multiplier;
++#define counter_per_ms (46'875 * speed_multiplier)
+ 
+ struct OSTimer {
+     PTR(OSTimer) unused1;
+@@ -62,7 +64,27 @@ std::chrono::high_resolution_clock::time_point ticks_to_timepoint(uint64_t ticks
+     return start_time + ticks_to_duration(ticks);
+ }
+ 
++// wg3d (patch 0003): in lockstep mode (speed multiplier > 1) VIs don't follow the wall clock, so the
++// count/time the game reads follows the VIs instead: 1/60 s of N64 time per VI, plus the scaled wall time
++// since the last VI, capped below one VI so time never runs ahead of the next one.
++static std::atomic<uint64_t> lockstep_vis{ 0 };
++static std::atomic<int64_t> lockstep_last_vi_ns{ 0 };
++constexpr uint64_t ticks_per_vi = 46'875'000 / 60;
++
++void ultramodern::lockstep_vi() {
++    lockstep_last_vi_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
++        std::chrono::high_resolution_clock::now().time_since_epoch()).count();
++    lockstep_vis++;
++}
++
+ uint64_t time_now() {
++    if (speed_multiplier > 1) {
++        int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
++            std::chrono::high_resolution_clock::now().time_since_epoch()).count();
++        uint64_t since = (uint64_t)std::max<int64_t>(0, now_ns - lockstep_last_vi_ns.load());
++        uint64_t extra = std::min<uint64_t>(since * 46'875 * speed_multiplier / 1'000'000, ticks_per_vi - 1);
++        return lockstep_vis.load() * ticks_per_vi + extra;
++    }
+     return duration_to_ticks(std::chrono::high_resolution_clock::now() - start_time);
+ }
+ 
+@@ -145,6 +167,10 @@ void ultramodern::init_timers(RDRAM_ARG1) {
+     timer_context.thread.detach();
+ }
+ 
++void ultramodern::set_speed_multiplier(uint32_t multiplier) {
++    speed_multiplier = multiplier == 0 ? 1 : multiplier;
++}
++
+ uint32_t ultramodern::get_speed_multiplier() {
+     return speed_multiplier;
+ }

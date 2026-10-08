@@ -16,7 +16,8 @@
 //   Q -> L, E -> R, I/J/K/L -> C up/left/down/right, T/F/G/H -> D-pad up/left/down/right
 //
 // Testing without a pad: WG3D_INPUT_SCRIPT="t:spec[:dur];..." presses `spec` on port 1 at t seconds
-// after init for dur seconds (default 0.15). spec is '+'-joined button names (A B Z START L R DU DD DL
+// for dur seconds (default 0.15). Script time is game time, VIs delivered since the game started / 60,
+// so a script hits the same frames at any --speed and under host load. spec is '+'-joined button names (A B Z START L R DU DD DL
 // DR CU CD CL CR) and/or X=<f> / Y=<f> stick values, e.g. "12:START;14.5:A;16:Y=-1:0.5".
 // WG3D_INPUT_LOG=1 logs every change of the buttons/stick the game receives.
 // WG3D_FAKE_PADS=N reports ports 2..N as connected idle controllers (port-detection tests, 3.7 gate).
@@ -24,6 +25,7 @@
 // (pak_port_N; default port 1 only). "none" for no paks.
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -34,6 +36,8 @@
 #include <vector>
 
 #include "SDL.h"
+
+#include "ultramodern/ultramodern.hpp"
 
 #include "wg3d_config.h"
 #include "wg3d_input.h"
@@ -63,7 +67,9 @@ namespace {
     std::array<PortState, NumPorts> snapshot{};
     std::mutex snapshot_mutex;
     std::vector<ScriptEvent> script;
-    std::chrono::steady_clock::time_point start_time;
+    std::atomic<uint64_t> game_vis{ 0 };  // VIs since the game started (on_vi)
+    std::chrono::steady_clock::time_point init_time;  // for the "game started" message only
+    std::array<PortState, NumPorts> last_logged{};
     bool log_input = false;
     int fake_pads = 0;
     std::array<bool, NumPorts> pak_inserted{};  // general.json, then WG3D_PAKS
@@ -172,7 +178,7 @@ namespace {
     }
 
     void apply_script(PortState& s) {
-        double t = std::chrono::duration<double>(std::chrono::steady_clock::now() - start_time).count();
+        double t = script_time();
         for (const ScriptEvent& ev : script) {
             if (t >= ev.start && t < ev.end) {
                 s.buttons |= ev.buttons;
@@ -216,7 +222,7 @@ namespace {
 
 void wg3d::input::init() {
     SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER);
-    start_time = std::chrono::steady_clock::now();
+    init_time = std::chrono::steady_clock::now();
     log_input = std::getenv("WG3D_INPUT_LOG") != nullptr;
     if (const char* n = std::getenv("WG3D_FAKE_PADS")) {
         fake_pads = std::clamp(std::atoi(n), 0, NumPorts);
@@ -260,23 +266,22 @@ void wg3d::input::update() {
     for (int port = 1; port < fake_pads; port++) next[port].connected = true;
     next[0].connected = true;  // keyboard
     read_keyboard(next[0]);
-    apply_script(next[0]);
 
     std::lock_guard lock{ snapshot_mutex };
-    if (log_input) {
-        for (int port = 0; port < NumPorts; port++) {
-            const PortState &a = snapshot[port], &b = next[port];
-            if (a.connected != b.connected || a.buttons != b.buttons || a.x != b.x || a.y != b.y) {
-                std::fprintf(stderr, "[wg3d] input: port %d %s buttons=%04X stick=(%.2f, %.2f)\n", port + 1,
-                             b.connected ? "connected" : "absent", b.buttons, b.x, b.y);
-            }
-        }
-    }
     snapshot = next;
 }
 
+void wg3d::input::on_vi() {
+    if (ultramodern::is_game_started()) {
+        if (game_vis++ == 0) {
+            std::fprintf(stderr, "[wg3d] game started %.3f s after the window opened (script time 0)\n",
+                         std::chrono::duration<double>(std::chrono::steady_clock::now() - init_time).count());
+        }
+    }
+}
+
 double wg3d::input::script_time() {
-    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start_time).count();
+    return game_vis.load() / 60.0;
 }
 
 void wg3d::input::poll_input() {}
@@ -284,7 +289,18 @@ void wg3d::input::poll_input() {}
 bool wg3d::input::get_input(int port, uint16_t* buttons, float* x, float* y) {
     if (port < 0 || port >= NumPorts) return false;
     std::lock_guard lock{ snapshot_mutex };
-    const PortState& s = snapshot[port];
+    PortState s = snapshot[port];
+    // The script is applied here, on the game thread, so presses line up with VIs even when the main
+    // thread's update() runs less often than VIs arrive (--speed).
+    if (port == 0) apply_script(s);
+    if (log_input) {
+        const PortState& a = last_logged[port];
+        if (a.connected != s.connected || a.buttons != s.buttons || a.x != s.x || a.y != s.y) {
+            std::fprintf(stderr, "[wg3d] input: t=%.3f port %d %s buttons=%04X stick=(%.2f, %.2f)\n", script_time(),
+                         port + 1, s.connected ? "connected" : "absent", s.buttons, s.x, s.y);
+            last_logged[port] = s;
+        }
+    }
     if (!s.connected) return false;
     *buttons = s.buttons;
     *x = s.x;
