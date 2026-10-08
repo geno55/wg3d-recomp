@@ -3,6 +3,8 @@
 // functions resolve to their MIPS names, e.g. func_80012345), a native stack walk, the N64 address
 // for faults inside the RDRAM reservation, and the thread's trace ring (--trace builds).
 // dump_all_threads() prints every thread's stack, for hangs (WG3D_DUMP_AFTER=<seconds> runs it once).
+// Chunk 5.2: the report also goes to logs/crash-<date>-<time>.txt, and a dialog points at it (unless
+// dialogs are off, as in --frames test runs). WG3D_CRASH_AFTER=<seconds> crashes on purpose, for testing.
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -10,25 +12,34 @@
 #include <TlHelp32.h>
 #endif
 
+#include <atomic>
 #include <chrono>
 #include <cinttypes>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <mutex>
+#include <string>
 #include <thread>
 
 #include "wg3d_crash.h"
+#include "wg3d_log.h"
 #include "wg3d_trace.h"
 
 namespace {
     uint8_t* rdram_base = nullptr;
+    std::atomic<bool> dialogs{ true };
     // librecomp reserves 4GB of address space for RDRAM (MEM macros index rdram + (addr - 0x80000000)).
     constexpr uint64_t RdramReserve = 0x100000000ULL;
 }
 
 void wg3d::crash::set_rdram(uint8_t* rdram) {
     rdram_base = rdram;
+}
+
+void wg3d::crash::set_dialogs(bool enabled) {
+    dialogs = enabled;
 }
 
 #ifdef _WIN32
@@ -110,16 +121,8 @@ namespace {
         }
     }
 
-    LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info) {
-        static volatile LONG entered = 0;
-        if (InterlockedExchange(&entered, 1) != 0) {
-            // Another thread is already reporting; let it finish.
-            Sleep(INFINITE);
-        }
-        FILE* out = stderr;
+    void write_report(FILE* out, EXCEPTION_POINTERS* info) {
         HANDLE process = GetCurrentProcess();
-        init_symbols(process);
-
         const EXCEPTION_RECORD* rec = info->ExceptionRecord;
         CONTEXT* ctx = info->ContextRecord;
 
@@ -159,6 +162,47 @@ namespace {
         wg3d::trace::dump_current_thread(out);
         std::fprintf(out, "[wg3d] ==== END CRASH ====\n");
         std::fflush(out);
+    }
+
+    // logs/crash-YYYYMMDD-HHMMSS.txt, or empty if the log folder isn't set up.
+    std::filesystem::path crash_file_path() {
+        std::filesystem::path dir = wg3d::log::dir();
+        if (dir.empty()) {
+            return {};
+        }
+        SYSTEMTIME t;
+        GetLocalTime(&t);
+        wchar_t name[64];
+        swprintf(name, 64, L"crash-%04u%02u%02u-%02u%02u%02u.txt", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+        return dir / name;
+    }
+
+    LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info) {
+        static volatile LONG entered = 0;
+        if (InterlockedExchange(&entered, 1) != 0) {
+            // Another thread is already reporting; let it finish.
+            Sleep(INFINITE);
+        }
+        init_symbols(GetCurrentProcess());
+        // The crash file first: it doesn't depend on the log pump threads still running.
+        std::filesystem::path crash_path = crash_file_path();
+        FILE* crash_file = crash_path.empty() ? nullptr : _wfopen(crash_path.c_str(), L"w");
+        if (crash_file != nullptr) {
+            write_report(crash_file, info);
+            std::fclose(crash_file);
+        }
+        write_report(stderr, info);
+        if (crash_file != nullptr) {
+            std::fprintf(stderr, "[wg3d] crash report saved to %s\n", crash_path.string().c_str());
+        }
+        wg3d::log::flush();
+        if (dialogs) {
+            std::wstring msg = L"W.G. 3D Hockey: Recompiled crashed.";
+            if (crash_file != nullptr) {
+                msg += L"\n\nA report was saved to:\n" + crash_path.wstring();
+            }
+            MessageBoxW(nullptr, msg.c_str(), L"W.G. 3D Hockey: Recompiled", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        }
         return EXCEPTION_EXECUTE_HANDLER;
     }
 }
@@ -214,8 +258,17 @@ void wg3d::crash::install() {
             wg3d::crash::dump_all_threads(stderr);
         } }.detach();
     }
+    if (const char* after = std::getenv("WG3D_CRASH_AFTER")) {
+        int seconds = std::atoi(after);
+        std::thread{ [seconds]() {
+            std::this_thread::sleep_for(std::chrono::seconds(seconds));
+            std::fprintf(stderr, "[wg3d] WG3D_CRASH_AFTER: crashing on purpose\n");
+            *static_cast<volatile int*>(nullptr) = 0;
+        } }.detach();
+    }
 }
 #else
 void wg3d::crash::install() {}
+void wg3d::crash::set_dialogs(bool) {}
 void wg3d::crash::dump_all_threads(FILE*) {}
 #endif

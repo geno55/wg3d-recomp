@@ -23,6 +23,9 @@ namespace wg3d::config {
     WindowState window_state();
     // Records the window's current placement (on SDL window events). Ignored while fullscreen or minimised.
     void track_window(SDL_Window* window);
+    // Switches between windowed and borderless fullscreen, and saves window_mode to graphics.json
+    // (Alt+Enter / F11, chunk 5.2).
+    void toggle_fullscreen();
     // Writes window.json. Call once on exit.
     void save_window_state();
 }

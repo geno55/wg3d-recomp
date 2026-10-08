@@ -7,11 +7,13 @@
 // Defaults reproduce the pre-config behaviour. Missing or invalid values fall back to the default, and
 // each file is rewritten after loading so it always lists every option.
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <mutex>
 #include <string>
 
 #include "SDL.h"
+#include "SDL_syswm.h"
 
 #include "librecomp/config.hpp"
 #include "ultramodern/config.hpp"
@@ -34,7 +36,7 @@ namespace {
 
     std::mutex window_mutex;
     wg3d::config::WindowState window_now{ false, 0, 0, DefaultWidth, DefaultHeight, false };
-    bool fullscreen = false;
+    std::atomic<bool> fullscreen{ false };
 
     std::string pak_option(int port) {
         return "pak_port_" + std::to_string(port + 1);
@@ -151,6 +153,18 @@ namespace {
         }
         return false;
     }
+
+    // RT64's borderless fullscreen restyles the window itself (WS_POPUP), so SDL's flags don't show it.
+    bool borderless_fullscreen(SDL_Window* w) {
+#ifdef _WIN32
+        SDL_SysWMinfo info;
+        SDL_VERSION(&info.version);
+        if (SDL_GetWindowWMInfo(w, &info) && info.subsystem == SDL_SYSWM_WINDOWS) {
+            return (GetWindowLongPtrW(info.info.win.window, GWL_STYLE) & WS_POPUP) != 0;
+        }
+#endif
+        return false;
+    }
 }
 
 void wg3d::config::load() {
@@ -187,7 +201,7 @@ wg3d::config::WindowState wg3d::config::window_state() {
 }
 
 void wg3d::config::track_window(SDL_Window* w) {
-    if (w == nullptr || fullscreen) {
+    if (w == nullptr || fullscreen || borderless_fullscreen(w)) {
         return;
     }
     uint32_t flags = SDL_GetWindowFlags(w);
@@ -222,4 +236,18 @@ void wg3d::config::save_window_state() {
     if (!window.save_config_json(j)) {
         std::fprintf(stderr, "[wg3d] config: failed to write window.json\n");
     }
+}
+
+void wg3d::config::toggle_fullscreen() {
+    GraphicsConfig g = get_graphics_config();
+    g.wm_option = g.wm_option == WindowMode::Fullscreen ? WindowMode::Windowed : WindowMode::Fullscreen;
+    // Set before the renderer switches, so track_window ignores the fullscreen-sized window.
+    fullscreen = g.wm_option == WindowMode::Fullscreen;
+    set_graphics_config(g);
+    nlohmann::json j = graphics.get_json_config();
+    j["window_mode"] = fullscreen ? "Fullscreen" : "Windowed";
+    if (!graphics.save_config_json(j)) {
+        std::fprintf(stderr, "[wg3d] config: failed to write graphics.json\n");
+    }
+    std::fprintf(stderr, "[wg3d] window mode: %s\n", fullscreen ? "Fullscreen" : "Windowed");
 }

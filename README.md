@@ -38,8 +38,12 @@ build\cmake\wg3d.exe path\to\your\rom.v64     # first run stores the ROM under %
 build\cmake\wg3d.exe                          # later runs
 ```
 Keyboard (port 1): arrows/WASD stick, X = A, C = B, Z/LShift = Z, Enter = Start, Q/E = L/R, IJKL = C buttons,
-TFGH = D-pad. Gamepads (Xbox layout) take ports 1–4 in connection order. Saves:
-`%APPDATA%\WG3DRecomp\saves\controllerpak_port<N>\`.
+TFGH = D-pad. Alt+Enter or F11 toggles fullscreen. Gamepads (Xbox layout) take ports 1–4 in connection order.
+Saves: `%APPDATA%\WG3DRecomp\saves\controllerpak_port<N>\`.
+
+`wg3d.exe` has no console window. Its output goes to `%APPDATA%\WG3DRecomp\logs\wg3d.log` (the previous two
+runs are kept as `wg3d.1.log` and `wg3d.2.log`); crash reports are saved there as `crash-<date>-<time>.txt`.
+`--console` also shows the output in a console, and configuring with `-DWG3D_CONSOLE=ON` builds a console program.
 
 Settings live next to the saves and are created with defaults on first run; edit them while the game is closed.
 `general.json` has `pak_port_1`–`pak_port_4` (which ports have a Controller Pak). `graphics.json` has `resolution`

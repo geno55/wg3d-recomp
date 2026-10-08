@@ -122,6 +122,8 @@ namespace {
         for (auto& m : map) {
             if (k[m.key]) s.buttons |= m.button;
         }
+        // Alt+Enter toggles fullscreen (main.cpp), so it must not also press Start.
+        if (k[SDL_SCANCODE_RETURN] && (k[SDL_SCANCODE_LALT] || k[SDL_SCANCODE_RALT])) s.buttons &= ~Start;
         float kx = float((k[SDL_SCANCODE_RIGHT] || k[SDL_SCANCODE_D]) - (k[SDL_SCANCODE_LEFT] || k[SDL_SCANCODE_A]));
         float ky = float((k[SDL_SCANCODE_UP] || k[SDL_SCANCODE_W]) - (k[SDL_SCANCODE_DOWN] || k[SDL_SCANCODE_S]));
         if (kx != 0.0f || ky != 0.0f) {

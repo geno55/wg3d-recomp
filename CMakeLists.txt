@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(WG3DRecomp LANGUAGES C CXX)
+project(WG3DRecomp VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
@@ -52,6 +52,7 @@ set(BASEROM "${CMAKE_SOURCE_DIR}/baserom.us.z64")
 # output in RecompiledFuncsTrace/: every recompiled function calls TRACE_ENTRY()/TRACE_RETURN()
 # (include/trace.h), which records per-function coverage and the per-thread trace ring (chunk 4.2).
 option(WG3D_TRACE "Build the trace/coverage variant of the recompiled code" OFF)
+option(WG3D_CONSOLE "Build wg3d.exe as a console program (development; the default is a GUI program)" OFF)
 if(WG3D_TRACE)
     set(RECOMP_DIR ${CMAKE_SOURCE_DIR}/RecompiledFuncsTrace)
     set(GEN_CONFIG_ARGS --trace)
@@ -124,6 +125,10 @@ set_source_files_properties(${FUNC_C_SOURCES} PROPERTIES COMPILE_OPTIONS
 set_source_files_properties(${CMAKE_SOURCE_DIR}/rsp/aspMain.cpp PROPERTIES COMPILE_OPTIONS
     "/clang:-march=nehalem;-Wno-unused-variable;-Wno-unused-label;-Wno-unused-but-set-variable;-Wno-shift-op-parentheses")
 
+# Icon and version resource (chunk 5.2); res/wg3d.ico comes from tools/make_icon.py.
+set(WG3D_RES_DIR ${CMAKE_SOURCE_DIR}/res)
+configure_file(${CMAKE_SOURCE_DIR}/res/wg3d.rc.in ${CMAKE_BINARY_DIR}/wg3d.rc @ONLY)
+
 # ---------------------------------------------------------------------------------------------
 # wg3d: the executable (Phase 3). Glue adapted from Quest64-Recomp; see docs/phase3.md.
 # ---------------------------------------------------------------------------------------------
@@ -137,6 +142,8 @@ add_executable(wg3d
     ${CMAKE_SOURCE_DIR}/src/main/dl_stats.cpp
     ${CMAKE_SOURCE_DIR}/src/main/capture.cpp
     ${CMAKE_SOURCE_DIR}/src/main/frame_log.cpp
+    ${CMAKE_SOURCE_DIR}/src/main/log.cpp
+    ${CMAKE_BINARY_DIR}/wg3d.rc
     ${CMAKE_SOURCE_DIR}/src/game/pi.cpp
     ${CMAKE_SOURCE_DIR}/src/game/input.cpp
     ${CMAKE_SOURCE_DIR}/src/game/test_hooks.cpp)
@@ -153,7 +160,7 @@ target_include_directories(wg3d PRIVATE
     ${CMAKE_SOURCE_DIR}/lib/rt64/src/render)
 
 # NOMINMAX: <Windows.h> (pulled in by RT64 headers) otherwise breaks std::min/std::max.
-target_compile_definitions(wg3d PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
+target_compile_definitions(wg3d PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS WG3D_VERSION="${PROJECT_VERSION}")
 target_link_libraries(wg3d PRIVATE WG3DRecompiled librecomp ultramodern rt64 SDL2 Winmm.lib Dbghelp.lib)
 
 # Identical code folding would merge distinct recompiled functions (Zelda64Recomp does the same).
@@ -162,8 +169,13 @@ target_link_options(wg3d PRIVATE /OPT:NOICF)
 # sources) so the crash handler can name recompiled functions. /DEBUG defaults to /OPT:NOREF; keep REF.
 target_compile_options(wg3d PRIVATE /Z7)
 target_link_options(wg3d PRIVATE /DEBUG /OPT:REF)
-# Console subsystem for now: runtime errors and traces go to stderr during Phase 3 bring-up.
-set_target_properties(wg3d PROPERTIES LINK_FLAGS "/SUBSYSTEM:CONSOLE")
+# GUI program by default (chunk 5.2): no console window; output goes to logs/wg3d.log (src/main/log.cpp),
+# and --console shows it in a console. mainCRTStartup keeps main() as the entry point.
+if(WG3D_CONSOLE)
+    set_target_properties(wg3d PROPERTIES LINK_FLAGS "/SUBSYSTEM:CONSOLE")
+else()
+    set_target_properties(wg3d PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+endif()
 
 add_custom_command(TARGET wg3d POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

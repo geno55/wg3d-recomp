@@ -3,7 +3,7 @@
 // lookup), without its RmlUi launcher: the ROM comes from the command line (or the copy the runtime
 // stored on a previous run) and the game starts immediately.
 //
-// Usage: wg3d.exe [--frames N] [--data-dir DIR] [path/to/rom.{z64,v64,n64}]
+// Usage: wg3d.exe [--frames N] [--data-dir DIR] [--console] [path/to/rom.{z64,v64,n64}]
 #include <array>
 #include <atomic>
 #include <cinttypes>
@@ -36,6 +36,7 @@
 #include "wg3d_config.h"
 #include "wg3d_crash.h"
 #include "wg3d_input.h"
+#include "wg3d_log.h"
 #include "wg3d_render.h"
 #include "wg3d_stats.h"
 #include "wg3d_trace.h"
@@ -44,7 +45,7 @@ namespace wg3d {
     void register_overlays();
 }
 
-static const std::string version_string = "0.1.0";
+static const std::string version_string = WG3D_VERSION;  // CMakeLists.txt project(VERSION)
 static std::u8string game_id = u8"wg3d.us";
 // Set from the command line in main() (chunk 3.7).
 static uint64_t smoke_frames = 0;
@@ -52,7 +53,10 @@ static std::filesystem::path data_dir_override;
 
 [[noreturn]] static void exit_error(const std::string& msg) {
     fprintf(stderr, "%s\n", msg.c_str());
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "W.G. 3D Hockey: Recompiled", msg.c_str(), nullptr);
+    // No dialog in --frames runs: those are automated and would hang on it (chunk 5.2).
+    if (smoke_frames == 0) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "W.G. 3D Hockey: Recompiled", msg.c_str(), nullptr);
+    }
     std::exit(EXIT_FAILURE);
 }
 
@@ -120,6 +124,13 @@ static void update_gfx(void*) {
             ultramodern::quit();
         } else if (event.type == SDL_WINDOWEVENT) {
             wg3d::config::track_window(window);
+        } else if (event.type == SDL_KEYDOWN && !event.key.repeat) {
+            // Alt+Enter / F11: windowed <-> borderless fullscreen (chunk 5.2). input.cpp ignores Enter
+            // while Alt is held, so this doesn't also press Start.
+            SDL_Keycode key = event.key.keysym.sym;
+            if (key == SDLK_F11 || (key == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT))) {
+                wg3d::config::toggle_fullscreen();
+            }
         }
         wg3d::input::handle_event(event);
     }
@@ -377,7 +388,9 @@ static std::string game_thread_name(const OSThread* t) {
 static void message_box(const char* msg) {
     fprintf(stderr, "[wg3d] %s\n", msg);
     wg3d::trace::dump_current_thread(stderr);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "W.G. 3D Hockey: Recompiled", msg, window);
+    if (smoke_frames == 0) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "W.G. 3D Hockey: Recompiled", msg, window);
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -386,9 +399,11 @@ static void message_box(const char* msg) {
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 gpr get_entrypoint_address();
 
-// Command line (chunk 3.7): wg3d.exe [--frames N] [--data-dir DIR] [rom]
-//   --frames N      smoke-test mode: quit cleanly after N VI frames (screen updates)
+// Command line (chunk 3.7): wg3d.exe [--frames N] [--data-dir DIR] [--console] [rom]
+//   --frames N      smoke-test mode: quit cleanly after N VI frames (screen updates); no crash dialog
 //   --data-dir DIR  config/save/ROM-store folder instead of %APPDATA%\WG3DRecomp (keeps tests off real saves)
+//   --console       also show the output in a console (5.2: the GUI build has none). Output always goes
+//                   to <app folder>/logs/wg3d.log, and to stdout/stderr when a parent redirects them.
 
 static std::filesystem::path app_folder_path() {
     if (!data_dir_override.empty()) {
@@ -403,32 +418,18 @@ static std::filesystem::path app_folder_path() {
 }
 
 int main(int argc, char** argv) {
-    // Unbuffered output so nothing is lost if the process dies (Phase 3 bring-up).
-    setvbuf(stdout, nullptr, _IONBF, 0);
-    setvbuf(stderr, nullptr, _IONBF, 0);
-    wg3d::crash::install();
-    wg3d::trace::init();
-#ifdef _WIN32
-    timeBeginPeriod(1);
-    SetConsoleOutputCP(CP_UTF8);
-    // Same as Quest64/Zelda: sample queueing is unreliable with the directsound backend.
-    SDL_setenv("SDL_AUDIODRIVER", "wasapi", true);
-#endif
-
-    recomp::Version project_version{};
-    if (!recomp::Version::from_string(version_string, project_version)) {
-        exit_error("Invalid version string: " + version_string);
-    }
-
     std::string rom_arg;
+    bool want_console = false;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--frames" && i + 1 < argc) {
             smoke_frames = std::strtoull(argv[++i], nullptr, 10);
         } else if (arg == "--data-dir" && i + 1 < argc) {
             data_dir_override = std::filesystem::absolute(argv[++i]);
+        } else if (arg == "--console") {
+            want_console = true;
         } else if (arg.rfind("--", 0) == 0) {
-            exit_error("Unknown option: " + arg + "\nUsage: wg3d.exe [--frames N] [--data-dir DIR] [rom]");
+            exit_error("Unknown option: " + arg + "\nUsage: wg3d.exe [--frames N] [--data-dir DIR] [--console] [rom]");
         } else {
             rom_arg = arg;
         }
@@ -436,6 +437,24 @@ int main(int argc, char** argv) {
 
     std::filesystem::path config_path = app_folder_path();
     std::filesystem::create_directories(config_path);
+    // From here on all output also goes to logs/wg3d.log (chunk 5.2), unbuffered so nothing is lost on a crash.
+    wg3d::log::init(config_path, want_console);
+    wg3d::crash::install();
+    wg3d::crash::set_dialogs(smoke_frames == 0);
+    wg3d::trace::init();
+#ifdef _WIN32
+    timeBeginPeriod(1);
+    SetConsoleOutputCP(CP_UTF8);
+    // Same as Quest64/Zelda: sample queueing is unreliable with the directsound backend.
+    SDL_setenv("SDL_AUDIODRIVER", "wasapi", true);
+#endif
+    fprintf(stderr, "[wg3d] W.G. 3D Hockey: Recompiled %s; log: %s\n", version_string.c_str(),
+            (wg3d::log::dir() / "wg3d.log").string().c_str());
+
+    recomp::Version project_version{};
+    if (!recomp::Version::from_string(version_string, project_version)) {
+        exit_error("Invalid version string: " + version_string);
+    }
     recomp::register_config_path(config_path);
     // Settings (general/graphics/window.json); before start so the renderer is created with them.
     wg3d::config::load();

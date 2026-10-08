@@ -1,0 +1,32 @@
+// Windows resources for wg3d.exe (chunk 5.2): icon and version info. CMake fills in the version.
+#include <winver.h>
+
+// The first icon is the exe's icon in Explorer, and SDL uses it for the window and taskbar.
+1 ICON "@WG3D_RES_DIR@/wg3d.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "W.G. 3D Hockey: Recompiled"
+            VALUE "FileVersion", "@PROJECT_VERSION@"
+            VALUE "InternalName", "wg3d"
+            VALUE "OriginalFilename", "wg3d.exe"
+            VALUE "ProductName", "W.G. 3D Hockey: Recompiled"
+            VALUE "ProductVersion", "@PROJECT_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
