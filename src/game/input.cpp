@@ -20,7 +20,8 @@
 // DR CU CD CL CR) and/or X=<f> / Y=<f> stick values, e.g. "12:START;14.5:A;16:Y=-1:0.5".
 // WG3D_INPUT_LOG=1 logs every change of the buttons/stick the game receives.
 // WG3D_FAKE_PADS=N reports ports 2..N as connected idle controllers (port-detection tests, 3.7 gate).
-// WG3D_PAKS="1,2" sets which ports have a Controller Pak inserted (default "1"; "none" for no paks).
+// WG3D_PAKS="1,2" sets which ports have a Controller Pak inserted, overriding general.json
+// (pak_port_N; default port 1 only). "none" for no paks.
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -34,6 +35,7 @@
 
 #include "SDL.h"
 
+#include "wg3d_config.h"
 #include "wg3d_input.h"
 
 namespace {
@@ -64,7 +66,7 @@ namespace {
     std::chrono::steady_clock::time_point start_time;
     bool log_input = false;
     int fake_pads = 0;
-    std::array<bool, NumPorts> pak_inserted{ true, false, false, false };  // WG3D_PAKS overrides
+    std::array<bool, NumPorts> pak_inserted{};  // general.json, then WG3D_PAKS
 
     float axis(SDL_GameController* pad, SDL_GameControllerAxis a) {
         return std::clamp(SDL_GameControllerGetAxis(pad, a) / 32767.0f, -1.0f, 1.0f);
@@ -219,6 +221,9 @@ void wg3d::input::init() {
     }
     if (const char* s = std::getenv("WG3D_INPUT_SCRIPT")) {
         parse_script(s);
+    }
+    for (int port = 0; port < NumPorts; port++) {
+        pak_inserted[port] = wg3d::config::pak_inserted(port);
     }
     if (const char* p = std::getenv("WG3D_PAKS")) {
         // Port numbers with an inserted pak, e.g. "1", "1,2" or "none".

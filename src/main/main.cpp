@@ -31,6 +31,7 @@
 #include "librecomp/game.hpp"
 #include "librecomp/rsp.hpp"
 
+#include "wg3d_config.h"
 #include "wg3d_crash.h"
 #include "wg3d_input.h"
 #include "wg3d_render.h"
@@ -74,9 +75,16 @@ static ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callba
 #if defined(RT64_SDL_WINDOW_VULKAN)
     flags |= SDL_WINDOW_VULKAN;
 #endif
-    window = SDL_CreateWindow("W.G. 3D Hockey: Recompiled", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 960, flags);
+    // Last session's windowed placement (window.json); centred on first run or if it is off-screen.
+    wg3d::config::WindowState placement = wg3d::config::window_state();
+    int x = placement.has_position ? placement.x : SDL_WINDOWPOS_CENTERED;
+    int y = placement.has_position ? placement.y : SDL_WINDOWPOS_CENTERED;
+    window = SDL_CreateWindow("W.G. 3D Hockey: Recompiled", x, y, placement.width, placement.height, flags);
     if (window == nullptr) {
         exit_error(std::string("Failed to create window: ") + SDL_GetError());
+    }
+    if (placement.maximized && ultramodern::renderer::get_graphics_config().wm_option != ultramodern::renderer::WindowMode::Fullscreen) {
+        SDL_MaximizeWindow(window);
     }
     SDL_SysWMinfo wm_info;
     SDL_VERSION(&wm_info.version);
@@ -107,6 +115,8 @@ static void update_gfx(void*) {
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             ultramodern::quit();
+        } else if (event.type == SDL_WINDOWEVENT) {
+            wg3d::config::track_window(window);
         }
         wg3d::input::handle_event(event);
     }
@@ -392,6 +402,8 @@ int main(int argc, char** argv) {
     std::filesystem::path config_path = app_folder_path();
     std::filesystem::create_directories(config_path);
     recomp::register_config_path(config_path);
+    // Settings (general/graphics/window.json); before start so the renderer is created with them.
+    wg3d::config::load();
 
     recomp::GameEntry game{};
     game.rom_hash = 0xB615F7ACDFB899B4ULL;  // XXH3-64 of the big-endian US V1.0 ROM
@@ -443,6 +455,7 @@ int main(int argc, char** argv) {
     // No launcher UI: start the game right away. The runtime's game thread waits for this.
     recomp::start_game(game_id, "");
     recomp::start(cfg);
+    wg3d::config::save_window_state();
 
 #ifdef _WIN32
     timeEndPeriod(1);

@@ -41,6 +41,13 @@ Keyboard (port 1): arrows/WASD stick, X = A, C = B, Z/LShift = Z, Enter = Start,
 TFGH = D-pad. Gamepads (Xbox layout) take ports 1–4 in connection order. Saves:
 `%APPDATA%\WG3DRecomp\saves\controllerpak_port<N>\`.
 
+Settings live next to the saves and are created with defaults on first run; edit them while the game is closed.
+`general.json` has `pak_port_1`–`pak_port_4` (which ports have a Controller Pak). `graphics.json` has `resolution`
+(`Original`/`Original2x`/`Auto`), `downsampling` (1–4), `window_mode` (`Windowed`/`Fullscreen`), `aspect_ratio`
+(`Original`/`Expand`), `hud_ratio`, `antialiasing` (`None`/`MSAA2X`/`MSAA4X`/`MSAA8X`), `refresh_rate`
+(`Original`/`Display`/`Manual`), `refresh_rate_manual`, `high_precision_framebuffer` and `graphics_api`
+(`Auto`/`D3D12`/`Vulkan`). `window.json` remembers the window's size and position.
+
 Verification scripts: `tools/verify_*.py`.
 
 ## Runtime patches

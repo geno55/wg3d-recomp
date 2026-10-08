@@ -117,6 +117,7 @@ set_source_files_properties(${CMAKE_SOURCE_DIR}/rsp/aspMain.cpp PROPERTIES COMPI
 # ---------------------------------------------------------------------------------------------
 add_executable(wg3d
     ${CMAKE_SOURCE_DIR}/src/main/main.cpp
+    ${CMAKE_SOURCE_DIR}/src/main/config.cpp
     ${CMAKE_SOURCE_DIR}/src/main/register_overlays.cpp
     ${CMAKE_SOURCE_DIR}/src/main/rt64_render_context.cpp
     ${CMAKE_SOURCE_DIR}/src/main/trace.cpp
