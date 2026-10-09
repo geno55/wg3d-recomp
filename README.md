@@ -57,10 +57,16 @@ Verification scripts: `tools/verify_*.py`. Scenario tests: `python tools/run_sce
 10x speed, 3 sessions at a time; `--speed 1 --jobs 1` for real time).
 
 ## License
-This project's own code (`src/`, `include/`, `tools/`, configs, docs) is MIT-licensed; see [LICENSE](LICENSE).
-The submodules keep their own licenses. N64ModernRuntime is GPL-3.0 and is linked into `wg3d.exe`, so built
-binaries are distributed under the GPL-3.0. The game itself is not covered: its code and data belong to their
-rights holders, and nothing derived from the ROM is in this repository.
+Copyright (C) 2026 geno55. This repository (`src/`, `include/`, `tools/`, tests, configs, docs) is licensed under
+the GNU General Public License v3.0 only; see [LICENSE](LICENSE). Parts of the runtime glue
+(`src/main/main.cpp`, `src/main/rt64_render_context.cpp`, `include/wg3d_render.h`) are adapted from
+[Quest64-Recomp](https://github.com/Rainchus/Quest64-Recomp) (GPL-3.0).
+The submodules keep their own licenses: N64ModernRuntime is GPL-3.0; N64Recomp and RT64 are MIT. Built binaries
+are distributed under the GPL-3.0. Releases up to v0.2.0 described this project's own code as MIT; from now on
+it is GPL-3.0.
+
+The game itself is not covered: its code and data belong to their rights holders, and nothing derived from
+the ROM is in this repository.
 
 ## Runtime patches
 `lib/N64ModernRuntime` is pinned to sonicdcer's `controller_pak_super_rebase` branch (Controller Pak support);

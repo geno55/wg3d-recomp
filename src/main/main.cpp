@@ -1,4 +1,6 @@
 // W.G. 3D Hockey: Recompiled -- entry point and runtime glue.
+// SPDX-License-Identifier: GPL-3.0-only
+// Parts adapted from Quest64-Recomp (https://github.com/Rainchus/Quest64-Recomp, GPL-3.0).
 // Structure follows Quest64-Recomp's src/main/main.cpp (SDL window/audio, RT64 renderer, RSP ucode
 // lookup), without its RmlUi launcher: the ROM comes from the command line (or the copy the runtime
 // stored on a previous run) and the game starts immediately.

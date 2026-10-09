@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Adapted from Quest64-Recomp (https://github.com/Rainchus/Quest64-Recomp, GPL-3.0).
 // RT64-backed ultramodern renderer. Adapted from Quest64-Recomp (src/main/rt64_render_context.cpp):
 // same RT64 core/VI register wiring and config mapping, minus the RmlUi render hooks and the
 // texture-pack/mod plumbing, which this project doesn't use (yet).

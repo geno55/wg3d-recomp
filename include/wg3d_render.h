@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Adapted from Quest64-Recomp (https://github.com/Rainchus/Quest64-Recomp, GPL-3.0).
 #ifndef WG3D_RENDER_H
 #define WG3D_RENDER_H
 
