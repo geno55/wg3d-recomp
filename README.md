@@ -35,8 +35,8 @@ tools\cmake_build.bat wg3d                             # -> build/cmake/wg3d.exe
 
 ## Run
 ```
-build\cmake\wg3d.exe path\to\your\rom.v64     # first run stores the ROM under %APPDATA%\WG3DRecomp
-build\cmake\wg3d.exe                          # later runs
+build\cmake\wg3d.exe                          # first run asks for the ROM and stores it under %APPDATA%\WG3DRecomp
+build\cmake\wg3d.exe path\to\your\rom.v64     # or give it on the command line (also how --frames test runs get it)
 ```
 Keyboard (port 1): arrows/WASD stick, X = A, C = B, Z/LShift = Z, Enter = Start, Q/E = L/R, IJKL = C buttons,
 TFGH = D-pad. Alt+Enter or F11 toggles fullscreen. Gamepads (Xbox layout) take ports 1–4 in connection order.

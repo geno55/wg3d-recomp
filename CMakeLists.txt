@@ -161,7 +161,8 @@ target_include_directories(wg3d PRIVATE
 
 # NOMINMAX: <Windows.h> (pulled in by RT64 headers) otherwise breaks std::min/std::max.
 target_compile_definitions(wg3d PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS WG3D_VERSION="${PROJECT_VERSION}")
-target_link_libraries(wg3d PRIVATE WG3DRecompiled librecomp ultramodern rt64 SDL2 Winmm.lib Dbghelp.lib)
+# nfd (nativefiledialog-extended, built by RT64): first-run ROM picker.
+target_link_libraries(wg3d PRIVATE WG3DRecompiled librecomp ultramodern rt64 nfd SDL2 Winmm.lib Dbghelp.lib)
 
 # Identical code folding would merge distinct recompiled functions (Zelda64Recomp does the same).
 target_link_options(wg3d PRIVATE /OPT:NOICF)

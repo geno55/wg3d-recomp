@@ -19,6 +19,7 @@
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
 #include "SDL_syswm.h"
+#include "nfd.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -418,6 +419,82 @@ gpr get_entrypoint_address();
 //   --console       also show the output in a console (5.2: the GUI build has none). Output always goes
 //                   to <app folder>/logs/wg3d.log, and to stdout/stderr when a parent redirects them.
 
+// ---------------------------------------------------------------------------------------------
+// ROM selection (chunk 5.5): command line, else the stored copy, else a file picker on first run.
+// ---------------------------------------------------------------------------------------------
+static const char* const wrong_rom_text =
+    "This build needs Wayne Gretzky's 3D Hockey (USA) V1.0\n(sha1 400aa84811f1f2f6c62c756b43b54d534d5a5ec8; .z64, .v64 or .n64).";
+
+// Validates and stores the ROM (the runtime copies it into the app folder). Empty string on success;
+// otherwise a short message for the player (the path goes to the log only).
+static std::string try_select_rom(const std::filesystem::path& rom_path) {
+    std::string err;
+    switch (recomp::select_rom(rom_path, game_id)) {
+        case recomp::RomValidationError::Good:
+            recomp::check_all_stored_roms();
+            return {};
+        case recomp::RomValidationError::FailedToOpen: err = "Could not open that file."; break;
+        case recomp::RomValidationError::NotARom: err = "That file is not an N64 ROM."; break;
+        case recomp::RomValidationError::IncorrectVersion:
+        case recomp::RomValidationError::IncorrectRom:
+            err = std::string("That is not the right game or version.\n\n") + wrong_rom_text;
+            break;
+        default: err = "That ROM could not be validated."; break;
+    }
+    fprintf(stderr, "[wg3d] ROM rejected: %s\n", rom_path.string().c_str());
+    return err;
+}
+
+// Two-button message box; true if the first button was pressed.
+static bool ask(SDL_MessageBoxFlags kind, const std::string& text, const char* yes, const char* no) {
+    const SDL_MessageBoxButtonData buttons[] = {
+        { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, yes },
+        { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, no },
+    };
+    const SDL_MessageBoxData data{ (Uint32)kind, nullptr, "W.G. 3D Hockey: Recompiled", text.c_str(),
+                                   SDL_arraysize(buttons), buttons, nullptr };
+    int pressed = 0;
+    return SDL_ShowMessageBox(&data, &pressed) == 0 && pressed == 1;
+}
+
+// First run without a ROM: explain, open a file picker, validate; repeat until a good ROM or the
+// player gives up. Returns false if they quit.
+static bool pick_rom() {
+    std::string prompt = std::string("Choose your ROM to play.\n\n") + wrong_rom_text;
+    if (!ask(SDL_MESSAGEBOX_INFORMATION, prompt, "Choose ROM...", "Quit")) {
+        return false;
+    }
+    if (NFD_Init() != NFD_OKAY) {
+        exit_error(std::string("Could not open a file dialog: ") + NFD_GetError() +
+                   "\nRun once as: wg3d.exe path\\to\\rom.z64");
+    }
+    const nfdu8filteritem_t filters[] = { { "N64 ROM", "z64,v64,n64" } };
+    bool chosen = false;
+    while (!chosen) {
+        nfdu8char_t* out = nullptr;
+        nfdresult_t r = NFD_OpenDialogU8(&out, filters, 1, nullptr);
+        if (r == NFD_CANCEL) {
+            break;
+        }
+        if (r != NFD_OKAY) {
+            std::string err = NFD_GetError();
+            NFD_Quit();
+            exit_error("File dialog error: " + err);
+        }
+        std::filesystem::path rom_path{ std::u8string(reinterpret_cast<const char8_t*>(out)) };
+        NFD_FreePathU8(out);
+        fprintf(stderr, "[wg3d] ROM picked: %s\n", rom_path.string().c_str());
+        std::string err = try_select_rom(rom_path);
+        if (err.empty()) {
+            chosen = true;
+        } else if (!ask(SDL_MESSAGEBOX_WARNING, err, "Try again", "Quit")) {
+            break;
+        }
+    }
+    NFD_Quit();
+    return chosen;
+}
+
 static std::filesystem::path app_folder_path() {
     if (!data_dir_override.empty()) {
         return data_dir_override;
@@ -487,24 +564,23 @@ int main(int argc, char** argv) {
 
     wg3d::register_overlays();
 
-    // ROM: from the command line (validated and stored by the runtime), else the stored copy.
+    // ROM: from the command line (validated and stored by the runtime), else the stored copy, else a
+    // file picker (not in --frames runs, which must never wait on a dialog).
     recomp::check_all_stored_roms();
     if (!rom_arg.empty()) {
-        std::filesystem::path rom_path{ rom_arg };
-        recomp::RomValidationError err = recomp::select_rom(rom_path, game_id);
-        switch (err) {
-            case recomp::RomValidationError::Good: break;
-            case recomp::RomValidationError::FailedToOpen: exit_error("Could not open ROM: " + rom_path.string());
-            case recomp::RomValidationError::NotARom: exit_error("Not an N64 ROM: " + rom_path.string());
-            case recomp::RomValidationError::IncorrectVersion:
-            case recomp::RomValidationError::IncorrectRom:
-                exit_error("Wrong ROM. This build needs Wayne Gretzky's 3D Hockey (USA) V1.0, sha1 400aa848...");
-            default: exit_error("ROM validation failed for: " + rom_path.string());
+        std::string err = try_select_rom(std::filesystem::path{ rom_arg });
+        if (!err.empty()) {
+            exit_error(err);
         }
-        recomp::check_all_stored_roms();
     }
     if (!recomp::is_rom_valid(game_id)) {
-        exit_error("No ROM stored yet. Run once as: wg3d.exe path\\to\\rom.z64 (or .v64/.n64)");
+        if (smoke_frames != 0) {
+            exit_error("No ROM stored yet. Run once as: wg3d.exe path\\to\\rom.z64 (or .v64/.n64)");
+        }
+        if (!pick_rom()) {
+            fprintf(stderr, "[wg3d] no ROM chosen, quitting\n");
+            return EXIT_SUCCESS;
+        }
     }
 
     SDL_InitSubSystem(SDL_INIT_AUDIO);
