@@ -1,4 +1,4 @@
-"""Chunk 4.4: frame-pacing analysis of a WG3D_FRAME_LOG (tools/run_scenario.py --frame-log).
+"""Frame-pacing analysis of a WG3D_FRAME_LOG (tools/run_scenario.py --frame-log).
 
 The log has, in graphics-thread order, a D line per gfx task (the framebuffer it draws into) and an S
 line per VI (the VI origin being scanned out). A "frame" is one framebuffer *generation*: the content

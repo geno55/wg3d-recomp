@@ -1,4 +1,4 @@
-// Controller input (chunk 3.5): SDL2 game controllers on N64 ports 1-4 plus a keyboard map on port 1.
+// Controller input: SDL2 game controllers on N64 ports 1-4 plus a keyboard map on port 1.
 //
 // Threading: SDL state is read only on the main thread (update(), right after the event pump);
 // the ultramodern callbacks, called from game threads, read a mutex-protected snapshot.
@@ -7,7 +7,7 @@
 // game sees a newly connected pad the next time it queries the controllers). Port 1 always reports
 // a controller, because the keyboard is merged into it.
 //
-// Default gamepad map (Xbox layout; remapping UI is Phase 5):
+// Default gamepad map (Xbox layout; no remapping yet):
 //   left stick / A / X / Start / D-pad -> stick / A / B / Start / D-pad
 //   right stick -> C buttons (also Y = C-Left, B = C-Down)
 //   LT -> Z, RT and RB -> R, LB -> L
@@ -20,7 +20,7 @@
 // so a script hits the same frames at any --speed and under host load. spec is '+'-joined button names (A B Z START L R DU DD DL
 // DR CU CD CL CR) and/or X=<f> / Y=<f> stick values, e.g. "12:START;14.5:A;16:Y=-1:0.5".
 // WG3D_INPUT_LOG=1 logs every change of the buttons/stick the game receives.
-// WG3D_FAKE_PADS=N reports ports 2..N as connected idle controllers (port-detection tests, 3.7 gate).
+// WG3D_FAKE_PADS=N reports ports 2..N as connected idle controllers (port-detection tests, boot gate).
 // WG3D_PAKS="1,2" sets which ports have a Controller Pak inserted, overriding general.json
 // (pak_port_N; default port 1 only). "none" for no paks.
 #include <algorithm>
@@ -320,7 +320,7 @@ ultramodern::input::connected_device_info_t wg3d::input::get_connected_device_in
     if (!connected) {
         return { ultramodern::input::Device::None, ultramodern::input::Pak::None };
     }
-    // Controller Pak (chunk 3.6): the runtime's osPfs* store each port's pak under
+    // Controller Pak: the runtime's osPfs* store each port's pak under
     // %APPDATA%/WG3DRecomp/saves/controllerpak_port<N>/.
     return { ultramodern::input::Device::Controller,
              pak_inserted[port] ? ultramodern::input::Pak::ControllerPak : ultramodern::input::Pak::None };

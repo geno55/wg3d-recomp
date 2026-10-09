@@ -1,4 +1,4 @@
-// In-process screenshots for the scenario harness (chunk 4.1).
+// In-process screenshots for the scenario harness.
 //
 // WG3D_CAPTURE="t1:label1,t2:label2,..." saves the window's client area at script time t (seconds on
 // the WG3D_INPUT_SCRIPT clock, wg3d::input::script_time) to WG3D_CAPTURE_DIR/<label>.bmp (default: the

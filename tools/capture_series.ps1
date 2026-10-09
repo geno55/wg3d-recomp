@@ -1,4 +1,4 @@
-# Timed capture series (chunk 3.3b): boots the game in ares (reference) or wg3d.exe and screenshots
+# Timed capture series: boots the game in ares (reference) or wg3d.exe and screenshots
 # its window every -IntervalMs ms, -Count times (build\<Name>_NNN.png), then closes it.
 # Usage: tools\capture_series.ps1 [-Target ares|wg3d] [-Count 30] [-IntervalMs 1000] [-Name <target>]
 # wg3d's output goes to build\<Name>.out.txt / .err.txt; set WG3D_* variables in the caller's environment.

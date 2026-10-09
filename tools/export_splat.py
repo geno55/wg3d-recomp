@@ -7,7 +7,7 @@ Writes:
   build/splat_funcs.csv    vram,size,name,file
   build/splat_jtbls.csv    jtbl_vram,entries,func_vram,targets(;-separated)
   build/splat_datarefs.csv vram,name,refs   (%hi/%lo-referenced data symbols)
-and prints cross-checks against the main .text range and the jump tables found in 1.1.
+and prints cross-checks against the main .text range and the jump tables found by tools/rom_map.py.
 """
 import csv
 import re
@@ -82,7 +82,7 @@ def parse_jtbls():
 
 
 def jtbls_from_1_1(rom: bytes) -> set[int]:
-    """Re-run the lui/lw/jr jump-table scan from chunk 1.1 for comparison."""
+    """Re-run the lui/lw/jr jump-table scan from tools/rom_map.py for comparison."""
     w = lambda v: struct.unpack(">I", rom[v + VRAM_TO_ROM:v + VRAM_TO_ROM + 4])[0]
     ins = [rabbitizer.Instruction(w(v), v) for v in range(TEXT_START, TEXT_END, 4)]
     out = set()
@@ -177,7 +177,7 @@ def main() -> int:
     jt_splat = {a for a, _ in tables}
     jt_11 = jtbls_from_1_1(rom)
     if jt_11 - jt_splat:
-        problems.append("jump tables found in 1.1 but not by spimdisasm: " + ", ".join(f"{a:08X}" for a in sorted(jt_11 - jt_splat)))
+        problems.append("jump tables found by rom_map but not by spimdisasm: " + ", ".join(f"{a:08X}" for a in sorted(jt_11 - jt_splat)))
 
     # Every direct call must land on a function start (N64Recomp emits calls by function symbol).
     start_set = set(starts)
@@ -193,7 +193,7 @@ def main() -> int:
 
     lib_named = sum(1 for _, _, n, _ in funcs if not n.startswith("func_"))
     print(f"functions: {len(funcs)} ({lib_named} named from symbol_addrs, {len(funcs) - lib_named} func_XXXXXXXX)")
-    print(f"jump tables: {len(tables)} (1.1 scan: {len(jt_11)}; spimdisasm-only: {len(jt_splat - jt_11)})")
+    print(f"jump tables: {len(tables)} (rom_map scan: {len(jt_11)}; spimdisasm-only: {len(jt_splat - jt_11)})")
     print(f"%hi/%lo-referenced symbols: {len(datarefs)}")
     print(f".text coverage: {TEXT_START:08X}-{TEXT_END:08X}, {len(gaps)} non-zero gaps")
     if problems:

@@ -3,7 +3,7 @@
 
 #include <filesystem>
 
-// Log file (chunk 5.2, src/main/log.cpp). Everything written to stdout/stderr (ours, the runtime's,
+// Log file (src/main/log.cpp). Everything written to stdout/stderr (ours, the runtime's,
 // RT64's) also goes to <app folder>/logs/wg3d.log; the previous two sessions are kept as wg3d.1.log and
 // wg3d.2.log. Output is still forwarded to the process's own stdout/stderr when those exist (a console
 // build, or a parent that redirects them, like tools/run_scenario.py). The GUI build has none; with

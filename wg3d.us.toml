@@ -32,7 +32,7 @@ ignored = [
 # No compiled function accesses hardware directly (docs/hw_audit.md), so nothing is stubbed or patched.
 stubs = []
 
-# Busy-wait loops get a yield at the loop head (chunk 3.3). Polled flags:
+# Busy-wait loops get a yield at the loop head. Polled flags:
 #   8009F38C: scheduler's count of gfx tasks in flight: +1 in func_80003898 when a gfx task is queued, -1 in func_8000392C (scheduler thread, on SP done)
 
 [[patches.hook]]
@@ -78,4 +78,4 @@ text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.m
 [[patches.hook]]
 func = "func_80047E5C"
 before_vram = 0x80047F50
-text = "wg3d_seed_override(rdram, ctx); /* wg3d: WG3D_FIXED_SEED (chunk 4.6) */"
+text = "wg3d_seed_override(rdram, ctx); /* wg3d: WG3D_FIXED_SEED */"

@@ -1,4 +1,4 @@
-// Frame log for the frame-pacing analysis (chunk 4.4).
+// Frame log for the frame-pacing analysis.
 //
 // WG3D_FRAME_LOG=<file> writes one line per event, both from the graphics thread (so in the order
 // RT64 processes them):

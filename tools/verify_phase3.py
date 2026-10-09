@@ -1,6 +1,6 @@
-"""Chunk 3.7: Phase 3 gate.
+"""Boot gate.
 
-  1. Phase 2 gate (tools/verify_phase2.py), then the full CMake build of wg3d.exe (no warnings or
+  1. Recompile gate (tools/verify_phase2.py), then the full CMake build of wg3d.exe (no warnings or
      errors from this project's sources).
   2. Smoke runs of wg3d.exe in --frames mode against a throw-away data dir (build/gate_data), so
      the user's %APPDATA% saves are never touched:
@@ -12,14 +12,14 @@
   3. Screenshots of run A are compared with a reference ares capture (logos, legal text, title):
      each reference screen must be matched by some frame of ours (normalised correlation of 64x48
      grayscale thumbnails >= MATCH_THRESHOLD), in the same order.
-  4. Prints the manual checklist (docs/phase3.md, 3.7).
+  4. Prints the manual checklist.
 
 References and goldens are derived from the ROM, so they live in build/ref/ (never committed):
   build/ref/ares_NNN.png       ares boot capture (made automatically if missing; needs ares)
   build/ref/golden_players4.png approved capture for run C (--update-goldens writes it; review it!)
 
 Usage: python tools/verify_phase3.py [--quick] [--update-goldens]
-  --quick           skip Phase 1 inside the Phase 2 gate
+  --quick           skip the symbol chain inside the recompile gate
   --update-goldens  write the run C golden from this run instead of comparing
 """
 import argparse
@@ -45,7 +45,7 @@ PS = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
 PY = sys.executable
 
 MATCH_THRESHOLD = 0.80
-# Reference screens in the ares capture (seconds after launch; see docs/phase3.md 3.3b).
+# Reference screens in the ares capture (seconds after launch).
 ARES_SCREENS = [("logos", 6), ("legal text", 10), ("title", 16)]
 ERROR_PATTERNS = re.compile(r"CRASH|Failed to find function|exited unexpectedly|UnhandledJumpTarget|"
                             r"unknown RSP task|unexpected audio ucode|Assertion|No registered RSP ucode")
@@ -130,7 +130,7 @@ def ensure_ares_reference():
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--quick", action="store_true", help="skip Phase 1 inside the Phase 2 gate")
+    ap.add_argument("--quick", action="store_true", help="skip the symbol chain inside the recompile gate")
     ap.add_argument("--update-goldens", action="store_true")
     args = ap.parse_args()
     t0 = time.time()
@@ -139,7 +139,7 @@ def main() -> int:
     # 1. Builds.
     r = subprocess.run([PY, str(ROOT / "tools" / "verify_phase2.py")] + (["--skip-phase1"] if args.quick else []),
                        cwd=ROOT, capture_output=True, text=True)
-    ok &= step("Phase 2 gate", r.returncode == 0 and "PHASE 2 VERIFIED" in r.stdout,
+    ok &= step("recompile gate", r.returncode == 0 and "PHASE 2 VERIFIED" in r.stdout,
                "" if r.returncode == 0 else r.stdout[-800:])
     r = subprocess.run(["cmd", "/c", str(ROOT / "tools" / "cmake_build.bat"), "wg3d"], cwd=ROOT,
                        capture_output=True, text=True, env={k: v for k, v in os.environ.items() if k != "WG3D_BUILD_DIR"})
@@ -205,7 +205,7 @@ def main() -> int:
         ok &= step("C 4-port player screen matches golden", score >= 0.95, f"similarity {score:.3f}")
 
     print(f"total {time.time() - t0:.0f}s")
-    print("\nManual checklist (sign off in docs/phase3.md, 3.7):")
+    print("\nManual checklist:")
     for item in ["startup screens and title look right (compare build/gateA_*.png with build/ref/ares_*.png)",
                  "menus navigable with keyboard and a real gamepad; hot-plug a pad",
                  "music and sound effects audible, right pitch and speed (compare with ares)",

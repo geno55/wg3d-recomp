@@ -1,4 +1,4 @@
-// Display-list summary for bring-up (chunk 3.3): walks an F3D display list in RDRAM and counts what
+// Display-list summary for bring-up: walks an F3D display list in RDRAM and counts what
 // it draws, to tell "the game draws nothing" apart from "RT64 renders it wrong". Enabled with
 // WG3D_DL_STATS=1; prints the first 10 gfx tasks, then every 60th.
 #include <cinttypes>
@@ -99,7 +99,7 @@ void wg3d::stats::summarize_dl(const uint8_t* rdram, uint32_t dl_addr) {
 }
 
 // Main color image of a display list: the SETCIMG target that receives the most draw commands
-// (triangles, rectangles). Used by the frame log (chunk 4.4). Returns 0 if nothing is drawn.
+// (triangles, rectangles). Used by the frame log. Returns 0 if nothing is drawn.
 uint32_t wg3d::stats::main_color_image(const uint8_t* rdram, uint32_t dl_addr) {
     uint32_t segments[16] = {};
     uint32_t stack[16];

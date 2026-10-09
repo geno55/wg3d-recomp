@@ -1,4 +1,4 @@
-// Log file and output forwarding (chunk 5.2). See include/wg3d_log.h.
+// Log file and output forwarding. See include/wg3d_log.h.
 //
 // stdout and stderr (the CRT descriptors 1 and 2, the FILE streams, and the Win32 standard handles) are
 // each pointed at a pipe. A pump thread per pipe copies what arrives into the shared log file and, if the

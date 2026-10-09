@@ -1,6 +1,6 @@
 """Hunt for runtime-loaded code (overlays) in W.G. 3D Hockey.
 
-Chunk 1.1 showed the ROM holds no uncompressed code outside the main segment. So any overlay
+The ROM map (tools/rom_map.py) shows the ROM holds no uncompressed code outside the main segment. So any overlay
 would have to be compressed code that is DMA'd or decompressed into RAM and then run. This
 script collects the evidence for or against that:
 
@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rom_map import (BSS_SIZE, DATA_END, LIBULTRA_TEXT_START, RSP_TEXT_END, TEXT_END,  # noqa: E402
                      TEXT_START, UCODE_DATA_END, VRAM_TO_ROM, rom_of)
 
-# Library functions identified by n64sym (Phase 0 smoke run).
+# Library functions identified by n64sym (first ROM survey).
 LIB_FUNCS = {
     0x8008C6A0: "osPiStartDma",
     0x80094C30: "osPiRawStartDma",
@@ -321,7 +321,7 @@ def main() -> int:
         elif 0x80000400 <= w < TEXT_START:
             ptrs_low += 1
     out += ["## 5. Code pointers in data", "",
-            f"- Words in data equal to a function start in `.text`: {ptrs_text}. These are function-pointer tables, input for 1.7.",
+            f"- Words in data equal to a function start in `.text`: {ptrs_text}. These are function-pointer tables, input for tools/check_indirect.py.",
             f"- Words pointing into low RAM `80000400`–`80001C00`: {ptrs_low}", ""]
 
     # Verdict

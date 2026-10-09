@@ -1,4 +1,4 @@
-// Windows resources for wg3d.exe (chunk 5.2): icon and version info. CMake fills in the version.
+// Windows resources for wg3d.exe: icon and version info. CMake fills in the version.
 #include <winver.h>
 
 // The first icon is the exe's icon in Explorer, and SDL uses it for the window and taskbar.

@@ -1,5 +1,5 @@
 // Runtime implementations for skipped libultra functions that the runtime doesn't provide.
-// (docs/libultra_coverage.md, "Gaps for Phase 2/3")
+// (docs/libultra_coverage.md, "Remaining gaps")
 #include <cstdio>
 
 #include "recomp.h"
@@ -10,7 +10,7 @@
 // libultra reads PHYS_TO_K1(osRomBase | devAddr), i.e. physical 0x10000000 | devAddr for cart ROM.
 // The game's boot function (0x80003480) reads 16 words at devAddr 0x00FFB000, past the end of the
 // 8MB ROM. On hardware that is PI open bus: each 16-bit halfword reads back the low 16 bits of its
-// own address. (To be confirmed against ares in chunk 3.3.)
+// own address. The game never reads the result, so the exact values don't matter.
 extern "C" void osPiRawReadIo_recomp(uint8_t* rdram, recomp_context* ctx) {
     uint32_t dev_addr = (uint32_t)ctx->r4;
     gpr data_ptr = ctx->r5;

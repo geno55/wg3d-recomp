@@ -1,4 +1,4 @@
-"""Chunk 1.5: headless Ghidra analysis of the main segment.
+"""Headless Ghidra analysis of the main segment.
 
 Imports ROM 0x1000-0xB7790 raw as MIPS:BE:64:64-32addr (VR4300 / MIPS III, 32-bit addresses) at
 0x80001C00. tools/ghidra/WG3DSeed.java splits memory and seeds entry points and library names;

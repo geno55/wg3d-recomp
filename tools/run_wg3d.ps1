@@ -1,4 +1,4 @@
-# Runs build\cmake\wg3d.exe for a bounded time and captures its output (Phase 3 bring-up).
+# Runs build\cmake\wg3d.exe for a bounded time and captures its output (debug helper).
 # Usage: tools\run_wg3d.ps1 [-Seconds 30] [-Name run] [-Trace <file>] [extra wg3d.exe args...]
 # Writes build\<Name>.out.txt / build\<Name>.err.txt and prints their tails.
 param(

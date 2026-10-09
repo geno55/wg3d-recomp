@@ -1,5 +1,5 @@
 #pragma once
-// Persistent settings (Phase 5 §1): general.json, graphics.json and window.json in the app folder,
+// Persistent settings: general.json, graphics.json and window.json in the app folder,
 // stored through librecomp's recomp::config::Config.
 
 struct SDL_Window;
@@ -24,7 +24,7 @@ namespace wg3d::config {
     // Records the window's current placement (on SDL window events). Ignored while fullscreen or minimised.
     void track_window(SDL_Window* window);
     // Switches between windowed and borderless fullscreen, and saves window_mode to graphics.json
-    // (Alt+Enter / F11, chunk 5.2).
+    // (Alt+Enter / F11).
     void toggle_fullscreen();
     // Writes window.json. Call once on exit.
     void save_window_state();

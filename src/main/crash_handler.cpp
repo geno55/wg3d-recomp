@@ -1,9 +1,9 @@
-// Crash reporter for Phase 3 bring-up (chunk 3.3). On an unhandled SEH exception it prints the
+// Crash reporter. On an unhandled SEH exception it prints the
 // exception, the faulting thread, module+offset and symbol (wg3d.exe links with /DEBUG, so recompiled
 // functions resolve to their MIPS names, e.g. func_80012345), a native stack walk, the N64 address
 // for faults inside the RDRAM reservation, and the thread's trace ring (--trace builds).
 // dump_all_threads() prints every thread's stack, for hangs (WG3D_DUMP_AFTER=<seconds> runs it once).
-// Chunk 5.2: the report also goes to logs/crash-<date>-<time>.txt, and a dialog points at it (unless
+// The report also goes to logs/crash-<date>-<time>.txt, and a dialog points at it (unless
 // dialogs are off, as in --frames test runs). WG3D_CRASH_AFTER=<seconds> crashes on purpose, for testing.
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN

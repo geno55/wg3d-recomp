@@ -1,7 +1,7 @@
 """Build the library (libultra/libaudio) function names for the main segment and check them
 against what N64Recomp and the runtime expect.
 
-Inputs (regenerate with tools/wsl/*.sh, run as: wsl -d Ubuntu -- sh <path>; see docs/phase1.md 1.3):
+Inputs (regenerate with tools/wsl/*.sh, run as: wsl -d Ubuntu -- sh <path>):
   build/n64sym_ram_t.txt   n64sym -s -t on build/ram_image.bin (built-in signatures)
   build/n64sym_ram_E.txt   n64sym -t with ultralib 2.0E archives
   build/sigs/*.a           fuzzy-match references (mk64 libultra at -O2/-O1, ultralib 2.0E)
@@ -210,7 +210,7 @@ def main() -> int:
           f"- Library range `{LIBULTRA_TEXT_START:08X}`–`{TEXT_END:08X}`: {len(names)} named functions "
           f"({len(MANUAL)} identified by hand, the rest by n64sym).",
           "- n64sym hits **outside** the library range are all rejected as false positives: tiny generic bodies, "
-          "or matches that aren't function starts (see docs/phase1.md 1.3).", ""]
+          "or matches that aren't function starts.", ""]
 
     md += ["## Rejected n64sym names in the library range", "",
            "| Address | Name | Reason |", "|---|---|---|"]
@@ -269,16 +269,16 @@ def main() -> int:
 
     md += ["## Link-level gaps", "",
            "Skipped functions without a runtime implementation that compiled code still calls. Live callers are "
-           "real gaps (below). **Dead** callers are only reachable through skipped functions, so Phase 2 marks them "
-           "`ignored` in the N64Recomp config. Otherwise they fail to link.", "",
+           "real gaps (below). **Dead** callers are only reachable through skipped functions, so the N64Recomp config marks them "
+           "`ignored`. Otherwise they fail to link.", "",
            "| Skipped callee | Callers (live / dead) |", "|---|---|"]
     for n, a, cs in link_gaps:
         md.append(f"| `{n}` | " + ", ".join(f"`{names.get(c, f'func_{c:08X}')}` ({'live' if lv else 'dead'})" for c, lv in cs) + " |")
-    md += ["", "Dead library functions for Phase 2 `[patches] ignored`: "
+    md += ["", "Dead library functions for `[patches] ignored`: "
            + ", ".join(f"`{names.get(c, f'func_{c:08X}')}`" for c in dead_to_ignore), ""]
     (ROOT / "syms" / "dead_ignore.txt").write_text("\n".join(names.get(c, f"func_{c:08X}") for c in dead_to_ignore) + "\n")
 
-    md += ["## Gaps for Phase 2/3", ""]
+    md += ["## Remaining gaps", ""]
     if gaps:
         for n, a, live in gaps:
             who = ", ".join(sorted({f"`{t.func_of(c):08X}`" for c in live}))

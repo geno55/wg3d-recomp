@@ -1,4 +1,4 @@
-"""Chunk 2.5: final check of the audio microcode (aspMain) recompilation.
+"""Final check of the audio microcode (aspMain) recompilation.
 
 RSPRecomp only knows two kinds of indirect-jump targets: return addresses of jal/jalr (site + 8),
 and `extra_indirect_branch_targets` from aspMain.toml. Any other computed jump would fail at

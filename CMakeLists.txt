@@ -16,7 +16,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # ---------------------------------------------------------------------------------------------
-# Dependencies (Phase 3). Same setup as Zelda64Recomp / Quest64-Recomp.
+# Dependencies. Same setup as Zelda64Recomp / Quest64-Recomp.
 #   lib/N64ModernRuntime: sonicdcer/controller_pak_super_rebase @ 6021a7d (local branch `wg3d`):
 #     upstream 589bbf0 + the Controller Pak implementation (N64ModernRuntime PR #139 lineage),
 #     which provides osPfsInit/osPfsInitPak etc. Pins N64Recomp 81213c1.
@@ -39,7 +39,7 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/lib/rt64 ${CMAKE_BINARY_DIR}/rt64)
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime ${CMAKE_BINARY_DIR}/N64ModernRuntime)
 
 # Recompiler tools (built from lib/N64Recomp @ ffb39cd; the runtime pins 81213c1, whose include/ and
-# code generator are identical -- see docs/phase2.md 2.4).
+# code generator are identical).
 set(N64RECOMP_EXE "${CMAKE_SOURCE_DIR}/lib/N64Recomp/build/N64Recomp.exe" CACHE FILEPATH "N64Recomp executable")
 set(RSPRECOMP_EXE "${CMAKE_SOURCE_DIR}/lib/N64Recomp/build/RSPRecomp.exe" CACHE FILEPATH "RSPRecomp executable")
 set(BASEROM "${CMAKE_SOURCE_DIR}/baserom.us.z64")
@@ -50,7 +50,7 @@ set(BASEROM "${CMAKE_SOURCE_DIR}/baserom.us.z64")
 # ---------------------------------------------------------------------------------------------
 # WG3D_TRACE=ON (use a separate build dir, e.g. WG3D_BUILD_DIR=build/cmake-trace) compiles the trace_mode
 # output in RecompiledFuncsTrace/: every recompiled function calls TRACE_ENTRY()/TRACE_RETURN()
-# (include/trace.h), which records per-function coverage and the per-thread trace ring (chunk 4.2).
+# (include/trace.h), which records per-function coverage and the per-thread trace ring.
 option(WG3D_TRACE "Build the trace/coverage variant of the recompiled code" OFF)
 option(WG3D_CONSOLE "Build wg3d.exe as a console program (development; the default is a GUI program)" OFF)
 if(WG3D_TRACE)
@@ -101,7 +101,7 @@ if(NOT EXISTS ${RECOMP_DIR}/funcs.h)
 endif()
 file(GLOB FUNC_C_SOURCES CONFIGURE_DEPENDS ${RECOMP_DIR}/*.c)
 # lookup.cpp: get_entrypoint_address()/get_rom_name(). recomp_overlays.inl (the section/function
-# table) is not compiled here; the runtime glue includes it (Phase 3).
+# table) is not compiled here; the runtime glue includes it (src/main/register_overlays.cpp).
 file(GLOB FUNC_CXX_SOURCES CONFIGURE_DEPENDS ${RECOMP_DIR}/*.cpp)
 
 add_library(WG3DRecompiled STATIC ${FUNC_C_SOURCES} ${FUNC_CXX_SOURCES} ${CMAKE_SOURCE_DIR}/rsp/aspMain.cpp)
@@ -115,7 +115,7 @@ target_include_directories(WG3DRecompiled PRIVATE
     ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/ultramodern/include)
 
 # Generated code: same flags as Zelda64Recomp's RecompiledFuncs, except implicit declarations stay
-# enabled (include/wg3d_skipped.h declares every skipped function the code calls; chunk 2.3).
+# enabled (include/wg3d_skipped.h declares every skipped function the code calls).
 set_source_files_properties(${FUNC_C_SOURCES} PROPERTIES COMPILE_OPTIONS
     "-fno-strict-aliasing;-Wno-unused-variable;-Wno-unused-label;-Wno-unused-but-set-variable")
 
@@ -125,12 +125,12 @@ set_source_files_properties(${FUNC_C_SOURCES} PROPERTIES COMPILE_OPTIONS
 set_source_files_properties(${CMAKE_SOURCE_DIR}/rsp/aspMain.cpp PROPERTIES COMPILE_OPTIONS
     "/clang:-march=nehalem;-Wno-unused-variable;-Wno-unused-label;-Wno-unused-but-set-variable;-Wno-shift-op-parentheses")
 
-# Icon and version resource (chunk 5.2); res/wg3d.ico comes from tools/make_icon.py.
+# Icon and version resource; res/wg3d.ico comes from tools/make_icon.py.
 set(WG3D_RES_DIR ${CMAKE_SOURCE_DIR}/res)
 configure_file(${CMAKE_SOURCE_DIR}/res/wg3d.rc.in ${CMAKE_BINARY_DIR}/wg3d.rc @ONLY)
 
 # ---------------------------------------------------------------------------------------------
-# wg3d: the executable (Phase 3). Glue adapted from Quest64-Recomp; see docs/phase3.md.
+# wg3d: the executable. Glue adapted from Quest64-Recomp.
 # ---------------------------------------------------------------------------------------------
 add_executable(wg3d
     ${CMAKE_SOURCE_DIR}/src/main/main.cpp
@@ -170,7 +170,7 @@ target_link_options(wg3d PRIVATE /OPT:NOICF)
 # sources) so the crash handler can name recompiled functions. /DEBUG defaults to /OPT:NOREF; keep REF.
 target_compile_options(wg3d PRIVATE /Z7)
 target_link_options(wg3d PRIVATE /DEBUG /OPT:REF)
-# GUI program by default (chunk 5.2): no console window; output goes to logs/wg3d.log (src/main/log.cpp),
+# GUI program by default: no console window; output goes to logs/wg3d.log (src/main/log.cpp),
 # and --console shows it in a console. mainCRTStartup keeps main() as the entry point.
 if(WG3D_CONSOLE)
     set_target_properties(wg3d PROPERTIES LINK_FLAGS "/SUBSYSTEM:CONSOLE")

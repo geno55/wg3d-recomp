@@ -1,4 +1,4 @@
-"""Chunk 1.7: function-pointer and indirect-call sweep.
+"""Function-pointer and indirect-call sweep.
 
 Indirect calls in recompiled code are dispatched by exact address (librecomp get_function), so every
 code address the game can materialize must be a function start in syms/wg3d.us.syms.toml.

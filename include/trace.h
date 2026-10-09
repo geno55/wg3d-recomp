@@ -5,7 +5,7 @@
 // -DWG3D_TRACE=ON). N64Recomp emits `TRACE_ENTRY()` at the start of every function and `TRACE_RETURN()`
 // before every `return;`, as bare statements, so both macros expand to complete statements.
 //
-// Coverage (chunk 4.2): each function reports its first entry once (a static flag per function, so the
+// Coverage: each function reports its first entry once (a static flag per function, so the
 // steady-state cost is one load and branch); WG3D_COVERAGE_FILE collects the names.
 // Call tracing: the per-thread ring / WG3D_TRACE_FILE stream only run when wg3d_trace_on is set
 // (WG3D_TRACE=1 or WG3D_TRACE_FILE; see src/main/trace.cpp).

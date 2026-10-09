@@ -1,4 +1,4 @@
-// W.G. 3D Hockey: Recompiled -- entry point and runtime glue (chunk 3.2).
+// W.G. 3D Hockey: Recompiled -- entry point and runtime glue.
 // Structure follows Quest64-Recomp's src/main/main.cpp (SDL window/audio, RT64 renderer, RSP ucode
 // lookup), without its RmlUi launcher: the ROM comes from the command line (or the copy the runtime
 // stored on a previous run) and the game starts immediately.
@@ -48,7 +48,7 @@ namespace wg3d {
 
 static const std::string version_string = WG3D_VERSION;  // CMakeLists.txt project(VERSION)
 static std::u8string game_id = u8"wg3d.us";
-// Set from the command line in main() (chunk 3.7).
+// Set from the command line in main().
 static uint64_t smoke_frames = 0;
 static std::filesystem::path data_dir_override;
 // --speed N: run the game N times faster than real time (test runs). Audio is muted when N > 1.
@@ -56,7 +56,7 @@ static uint32_t speed = 1;
 
 [[noreturn]] static void exit_error(const std::string& msg) {
     fprintf(stderr, "%s\n", msg.c_str());
-    // No dialog in --frames runs: those are automated and would hang on it (chunk 5.2).
+    // No dialog in --frames runs: those are automated and would hang on it.
     if (smoke_frames == 0) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "W.G. 3D Hockey: Recompiled", msg.c_str(), nullptr);
     }
@@ -129,7 +129,7 @@ static void update_gfx(void*) {
         } else if (event.type == SDL_WINDOWEVENT) {
             wg3d::config::track_window(window);
         } else if (event.type == SDL_KEYDOWN && !event.key.repeat) {
-            // Alt+Enter / F11: windowed <-> borderless fullscreen (chunk 5.2). input.cpp ignores Enter
+            // Alt+Enter / F11: windowed <-> borderless fullscreen. input.cpp ignores Enter
             // while Alt is held, so this doesn't also press Start.
             SDL_Keycode key = event.key.keysym.sym;
             if (key == SDLK_F11 || (key == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT))) {
@@ -169,7 +169,7 @@ static uint32_t discarded_output_frames;
 constexpr uint32_t bytes_per_frame = input_channels * sizeof(float);
 
 // WG3D_AUDIO_DUMP=<file.wav>: writes the game's raw samples (after the channel swap, at the game's
-// rate) for the first 60 seconds, for checking pitch/content against ares (chunk 3.4).
+// rate) for the first 60 seconds, for checking pitch/content against ares.
 static FILE* audio_dump = nullptr;
 static uint32_t audio_dump_frames = 0;
 static uint32_t audio_dump_rate = 0;
@@ -317,7 +317,7 @@ static void reset_audio(uint32_t output_freq) {
     update_audio_converter();
 }
 
-// Prints the bring-up counters every 2 seconds (chunk 3.3).
+// Prints the bring-up counters every 2 seconds.
 extern std::atomic<uint32_t> wg3d_fpu_flags;  // src/game/test_hooks.cpp
 
 static void print_stats() {
@@ -346,7 +346,7 @@ static void print_stats() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// RSP microcode lookup (docs/phase2.md 2.5). Graphics tasks go to RT64, never here.
+// RSP microcode lookup. Graphics tasks go to RT64, never here.
 // ---------------------------------------------------------------------------------------------
 extern RspUcodeFunc aspMain;
 constexpr uint32_t ASPMAIN_TEXT_VRAM = 0x8009E530;
@@ -372,7 +372,7 @@ static RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Game threads: FPU flush-to-zero (chunk 4.6).
+// Game threads: FPU flush-to-zero.
 // libultra starts every thread with FCSR.FS = 1 (osCreateThread: FPCSR_FS | FPCSR_EV), and this game
 // sets FCSR to 0x01000E00, so on the N64 denormal float results are flushed to zero. The x86
 // equivalent is MXCSR FTZ (bit 15) + DAZ (bit 6), which are per host thread. ultramodern calls
@@ -412,15 +412,15 @@ static void message_box(const char* msg) {
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 gpr get_entrypoint_address();
 
-// Command line (chunk 3.7): wg3d.exe [--frames N] [--speed N] [--data-dir DIR] [--console] [rom]
+// Command line: wg3d.exe [--frames N] [--speed N] [--data-dir DIR] [--console] [rom]
 //   --frames N      smoke-test mode: quit cleanly after N VIs of game time (since the game started); no dialogs
 //   --speed N       run the game N times faster than real time, audio muted (tools/run_scenario.py)
 //   --data-dir DIR  config/save/ROM-store folder instead of %APPDATA%\WG3DRecomp (keeps tests off real saves)
-//   --console       also show the output in a console (5.2: the GUI build has none). Output always goes
+//   --console       also show the output in a console (the GUI build has none). Output always goes
 //                   to <app folder>/logs/wg3d.log, and to stdout/stderr when a parent redirects them.
 
 // ---------------------------------------------------------------------------------------------
-// ROM selection (chunk 5.5): command line, else the stored copy, else a file picker on first run.
+// ROM selection: command line, else the stored copy, else a file picker on first run.
 // ---------------------------------------------------------------------------------------------
 static const char* const wrong_rom_text =
     "This build needs Wayne Gretzky's 3D Hockey (USA) V1.0\n(sha1 400aa84811f1f2f6c62c756b43b54d534d5a5ec8; .z64, .v64 or .n64).";
@@ -529,7 +529,7 @@ int main(int argc, char** argv) {
 
     std::filesystem::path config_path = app_folder_path();
     std::filesystem::create_directories(config_path);
-    // From here on all output also goes to logs/wg3d.log (chunk 5.2), unbuffered so nothing is lost on a crash.
+    // From here on all output also goes to logs/wg3d.log, unbuffered so nothing is lost on a crash.
     wg3d::log::init(config_path, want_console);
     wg3d::crash::install();
     wg3d::crash::set_dialogs(smoke_frames == 0);
@@ -556,7 +556,7 @@ int main(int argc, char** argv) {
     game.internal_name = "W.G. 3DHOCKEY";
     game.display_name = "Wayne Gretzky's 3D Hockey";
     game.game_id = game_id;
-    game.save_type = recomp::SaveType::None;  // saves go to the Controller Pak (chunk 3.6)
+    game.save_type = recomp::SaveType::None;  // saves go to the Controller Pak
     game.is_enabled = true;
     game.entrypoint_address = get_entrypoint_address();
     game.entrypoint = recomp_entrypoint;

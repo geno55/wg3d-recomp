@@ -5,7 +5,7 @@
 #include <cstdint>
 
 namespace wg3d::stats {
-    // Bring-up counters (chunk 3.3), printed periodically by main.cpp's update_gfx.
+    // Bring-up counters, printed periodically by main.cpp's update_gfx.
     extern std::atomic<uint64_t> display_lists;
     extern std::atomic<uint64_t> screen_updates;
     extern std::atomic<uint64_t> audio_tasks;
@@ -18,7 +18,7 @@ namespace wg3d::stats {
 
     // Prints a summary of a gfx task's display list when WG3D_DL_STATS is set (src/main/dl_stats.cpp).
     void summarize_dl(const uint8_t* rdram, uint32_t dl_addr);
-    // The color image a display list draws most into (src/main/dl_stats.cpp; frame log, chunk 4.4).
+    // The color image a display list draws most into (src/main/dl_stats.cpp; frame log).
     uint32_t main_color_image(const uint8_t* rdram, uint32_t dl_addr);
 }
 

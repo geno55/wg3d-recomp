@@ -1,6 +1,6 @@
 // Ghidra pre-script (runs after import, before auto-analysis) for the W.G. 3D Hockey main segment.
 // Splits memory into executable .text and non-executable RSP/data, adds .bss, and seeds
-// function starts: the entry stub, the boot function, and the library names from chunk 1.3.
+// function starts: the entry stub, the boot function, and the library names from tools/gen_libsyms.py.
 // Args: <path to syms/libultra_symbols.txt>
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;

@@ -1,4 +1,4 @@
-// Trace and coverage support for WG3D_TRACE builds (see include/trace.h; chunk 3.3, extended in 4.2).
+// Trace and coverage support for WG3D_TRACE builds (see include/trace.h).
 //
 // Coverage: every recompiled function reports its first entry once. With WG3D_COVERAGE_FILE set,
 // the names are appended (and flushed) to that file as they are first reached, so the file is

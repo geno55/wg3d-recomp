@@ -1,16 +1,16 @@
-"""Chunk 2.6: Phase 2 gate. Rebuilds everything from the ROM and checks every result.
+"""Recompile gate. Rebuilds everything from the ROM and checks every result.
 
 Steps:
-  1. Phase 1 chain: rom_map, find_overlays, gen_libsyms, splat, export_splat, run_ghidra, gen_syms,
-     check_indirect, verify_syms (the Phase 1 gate, including its trial recompile).
-  2. Phase 2 checks: hw_audit (2.1) and check_aspmain (2.5).
-  3. Clean regeneration: delete the generated Phase 2 outputs, run gen_config (config, N64Recomp,
+  1. Symbol chain: rom_map, find_overlays, gen_libsyms, splat, export_splat, run_ghidra, gen_syms,
+     check_indirect, verify_syms (the symbols gate, including its trial recompile).
+  2. Recompile checks: hw_audit and check_aspmain.
+  3. Clean regeneration: delete the generated recompile outputs, run gen_config (config, N64Recomp,
      declarations header, clang-cl syntax check), then a clean CMake build of WG3DRecompiled
      with 0 errors and 0 warnings.
   4. Determinism: the symbols file, config, declarations header and generated C hash the same
      as before the run.
 
-Inputs that are kept (built in WSL, see docs/phase1.md 1.3): build/n64sym_*.txt, build/sigs/*.a.
+Inputs that are kept (built in WSL with tools/wsl/*.sh): build/n64sym_*.txt, build/sigs/*.a.
 
 Usage: python tools/verify_phase2.py [--skip-phase1]
 """
@@ -26,22 +26,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PY = sys.executable
 
-PHASE1 = [
-    ("1.1 ROM map", [PY, "tools/rom_map.py"], "."),
-    ("1.2 overlays", [PY, "tools/find_overlays.py"], "."),
-    ("1.3 library names", [PY, "tools/gen_libsyms.py"], "."),
-    ("1.4 splat", [PY, "-m", "splat", "split", "wg3d.us.yaml"], "splat"),
-    ("1.4 export", [PY, "tools/export_splat.py"], "."),
-    ("1.5 Ghidra", [PY, "tools/run_ghidra.py"], "."),
-    ("1.6 merge", [PY, "tools/gen_syms.py"], "."),
-    ("1.7 indirect targets", [PY, "tools/check_indirect.py"], "."),
-    ("1.8 Phase 1 gate", [PY, "tools/verify_syms.py"], "."),
+SYMBOL_STEPS = [
+    ("ROM map", [PY, "tools/rom_map.py"], "."),
+    ("overlays", [PY, "tools/find_overlays.py"], "."),
+    ("library names", [PY, "tools/gen_libsyms.py"], "."),
+    ("splat", [PY, "-m", "splat", "split", "wg3d.us.yaml"], "splat"),
+    ("splat export", [PY, "tools/export_splat.py"], "."),
+    ("Ghidra", [PY, "tools/run_ghidra.py"], "."),
+    ("merge", [PY, "tools/gen_syms.py"], "."),
+    ("indirect targets", [PY, "tools/check_indirect.py"], "."),
+    ("symbols gate", [PY, "tools/verify_syms.py"], "."),
 ]
-PHASE2_CHECKS = [
-    ("2.1 hardware audit", [PY, "tools/hw_audit.py"], "."),
-    ("2.5 aspMain check", [PY, "tools/check_aspmain.py"], "."),
+RECOMPILE_CHECKS = [
+    ("hardware audit", [PY, "tools/hw_audit.py"], "."),
+    ("aspMain check", [PY, "tools/check_aspmain.py"], "."),
 ]
-# Generated Phase 2 outputs removed before regenerating (paths relative to ROOT).
+# Generated recompile outputs removed before regenerating (paths relative to ROOT).
 # The clean build uses its own directory so the gate doesn't delete the dev build (build/cmake, wg3d.exe).
 VERIFY_BUILD_DIR = "build/cmake-verify"
 GENERATED = ["RecompiledFuncs", "rsp/aspMain.cpp", "include/wg3d_skipped.h", VERIFY_BUILD_DIR]
@@ -79,7 +79,7 @@ def main() -> int:
     before = {rel: digest(rel) for rel in DETERMINISTIC}
     failures = []
 
-    steps = ([] if args.skip_phase1 else PHASE1) + PHASE2_CHECKS
+    steps = ([] if args.skip_phase1 else SYMBOL_STEPS) + RECOMPILE_CHECKS
     for name, cmd, cwd in steps:
         if not run(name, cmd, cwd):
             failures.append(name)
@@ -87,7 +87,7 @@ def main() -> int:
         print("stopping: " + ", ".join(failures))
         return 1
 
-    # Clean regeneration of the Phase 2 outputs.
+    # Clean regeneration of the recompile outputs.
     for rel in GENERATED:
         p = (ROOT / rel).resolve()
         assert p.is_relative_to(ROOT) and p != ROOT
@@ -95,9 +95,9 @@ def main() -> int:
             shutil.rmtree(p)
         elif p.exists():
             p.unlink()
-    if not run("2.2/2.3 config, recompile, declarations, syntax check", [PY, "tools/gen_config.py"], "."):
+    if not run("config, recompile, declarations, syntax check", [PY, "tools/gen_config.py"], "."):
         failures.append("gen_config")
-    elif not run("2.4 clean CMake build", ["cmd", "/c", str(ROOT / "tools" / "cmake_build.bat"), "WG3DRecompiled"], ".",
+    elif not run("clean CMake build", ["cmd", "/c", str(ROOT / "tools" / "cmake_build.bat"), "WG3DRecompiled"], ".",
                  env={**os.environ, "WG3D_BUILD_DIR": VERIFY_BUILD_DIR}):
         failures.append("cmake build")
     else:

@@ -1,4 +1,4 @@
-// Persistent settings (Phase 5 §1). Three librecomp configs, each a JSON file in the app folder
+// Persistent settings. Three librecomp configs, each a JSON file in the app folder
 // (%APPDATA%\WG3DRecomp, or --data-dir):
 //   general.json   Controller Pak per port
 //   graphics.json  RT64 options (the ultramodern GraphicsConfig fields set_application_user_config maps)

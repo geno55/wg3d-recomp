@@ -1,4 +1,4 @@
-# splat config for analysis (Phase 1.4), not for building. Generated once from
+# splat config for analysis, not for building. Generated once from
 # Rainchus/WayneGretzky3dHockey (its .text file boundaries) plus docs/rom_map.md.
 # Run from the project root: python -m splat split splat/wg3d.us.yaml
 name: W.G. 3D Hockey (US V1.0)

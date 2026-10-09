@@ -1,9 +1,9 @@
-"""Chunk 1.8: Phase 1 gate. Verifies syms/wg3d.us.syms.toml and runs a trial recompilation.
+"""Symbols gate. Verifies syms/wg3d.us.syms.toml and runs a trial recompilation.
 
 Checks:
   1. Function list: 100% .text coverage (gaps must be zero padding), no overlaps, word alignment,
      unique C names, every jal target is a start, no start reachable by fall-through.
-  2. Library checklist: the only live gaps are the known Phase 3 items (EXPECTED_GAPS).
+  2. Library checklist: the only live gaps are the known runtime gaps (EXPECTED_GAPS).
   3. Indirect targets: tools/check_indirect.py passes.
   4. Trial N64Recomp run (entrypoint + symbols, dead library code ignored): exits 0 with no
      warnings except the known entry-stub tail call.
@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TRIAL = ROOT / "build" / "trial"
 VCVARS = r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 
-# Skipped functions with live callers and no runtime implementation; Phase 3 implements them.
+# Skipped functions with live callers and no runtime implementation; src/game/ implements them.
 EXPECTED_GAPS = {"osPiRawReadIo"}
 # The entry stub ends with `jr $t2` into boot_main (0x80003480).
 EXPECTED_RECOMP_MESSAGES = {"[Info] Indirect tail call in recomp_entrypoint"}
@@ -93,7 +93,7 @@ def trial_recompile() -> list[str]:
     TRIAL.mkdir(parents=True, exist_ok=True)
     dead = [n for n in (ROOT / "syms" / "dead_ignore.txt").read_text().split() if n]
     cfg = [
-        "# Phase 1.8 trial: entrypoint + symbols; dead library code that calls unimplemented skipped",
+        "# Trial recompile: entrypoint + symbols; dead library code that calls unimplemented skipped",
         "# functions is ignored (list from tools/gen_libsyms.py -> syms/dead_ignore.txt).",
         "[input]",
         f"entrypoint = 0x{TEXT_START:08X}",

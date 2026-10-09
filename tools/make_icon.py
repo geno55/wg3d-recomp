@@ -1,4 +1,4 @@
-"""Chunk 5.2: draws the app icon (res/wg3d.ico): a puck on centre ice. Original artwork, nothing from the ROM.
+"""Draws the app icon (res/wg3d.ico): a puck on centre ice. Original artwork, nothing from the ROM.
 
 Each size is drawn at 4x and downsampled, so small sizes stay sharp. Run after changing the design;
 the .ico is committed.

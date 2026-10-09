@@ -1,6 +1,6 @@
-"""Chunk 1.6: merge splat (1.4), Ghidra (1.5) and library names (1.3) into the N64Recomp symbols file.
+"""Merge splat, Ghidra and library names (tools/gen_libsyms.py) into the N64Recomp symbols file.
 
-Rules (docs/phase1.md 1.5/1.6):
+Rules:
   - splat/spimdisasm is primary for starts and sizes. Library names come from symbol_addrs and are applied there.
   - A start is valid only if the code before it cannot fall through: skipping trailing nop padding,
     the last two instructions are an unconditional jump / eret / call to a noreturn function, plus

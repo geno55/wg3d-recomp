@@ -1,4 +1,4 @@
-"""Chunk 4.1: scenario harness.
+"""Scenario harness.
 
 A scenario (tests/scenarios/<name>.toml) is a repeatable path into the game: timed input, timed
 screenshots, extra WG3D_* settings and expected log lines. This runs it on wg3d.exe (unattended) and/or
@@ -39,7 +39,7 @@ Usage:
     python tools/run_scenario.py all|<name>... [--target wg3d|ares|both] [--interactive] [--update-goldens]
                                  [--speed N] [--jobs N]
     python tools/run_scenario.py --list
-    python tools/run_scenario.py all --exe build/cmake-trace/wg3d.exe --coverage   (chunk 4.2 coverage)
+    python tools/run_scenario.py all --exe build/cmake-trace/wg3d.exe --coverage   (coverage run)
 Exit code 1 if any wg3d run fails (errors, missing expects, golden mismatch).
 """
 import argparse
@@ -468,7 +468,7 @@ def main() -> int:
     ap.add_argument("--env", action="append", default=[], metavar="K=V", help="extra environment for wg3d (repeatable)")
     ap.add_argument("--tag", default="", help="write to build/scen/<name>@<tag>/ (repeat runs side by side)")
     ap.add_argument("--frame-log", action="store_true",
-                    help="write build/scen/<name>/frames.log for tools/frame_pacing.py (chunk 4.4)")
+                    help="write build/scen/<name>/frames.log for tools/frame_pacing.py")
     ap.add_argument("--coverage", action="store_true",
                     help="write build/scen/<name>/coverage.txt (needs a WG3D_TRACE build, see --exe)")
     ap.add_argument("--speed", type=int, default=10, help="wg3d game speed (1 = real time)")
