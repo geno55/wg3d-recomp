@@ -1,0 +1,19 @@
+description = "Port 1's pak starts with 16 notes of another game (no free note slot, PFS_DIR_FULL): a new Short Season on CTLR PAK1 gets the pak-full error and the CTLR PAK NOTES screen to delete notes"
+seconds = 41
+input = [
+    [14.0, "START"], [15.5, "Y=-1", 0.2], [17.0, "A"], [19.0, "Y=1", 0.2], [19.8, "Y=1", 0.2], [20.6, "Y=1", 0.2],
+    [21.4, "Y=1", 0.2], [22.5, "A"], [24.5, "Y=-1", 0.15], [25.3, "Y=-1", 0.15], [26.5, "A"], [28.0, "Y=-1", 0.12],
+    [28.5, "Y=-1", 0.12], [29.0, "Y=-1", 0.12], [29.5, "Y=-1", 0.12], [30.0, "Y=-1", 0.12], [30.5, "X=1", 0.12], [31.0, "X=1", 0.12],
+    [31.5, "A", 0.12], [32.3, "Y=1", 0.12], [32.8, "Y=1", 0.12], [33.3, "Y=1", 0.12], [33.8, "Y=1", 0.12], [34.3, "A", 0.12],
+    [35.1, "Y=-1", 0.12], [35.6, "Y=-1", 0.12], [36.1, "Y=-1", 0.12], [36.6, "Y=-1", 0.12], [37.1, "Y=-1", 0.12], [37.6, "X=-1", 0.12],
+    [38.1, "A", 0.12],
+]
+captures = [
+    [40.4, "pak_notes"],
+]
+tier = "quick"
+pak_notes = 16
+pak_note_pages = 1
+env = { WG3D_PFS_LOG = "1" }
+expect = ['osPfsAllocateFile\(channel 0, 1792 bytes\) -> 8']
+ares = false

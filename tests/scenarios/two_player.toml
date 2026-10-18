@@ -1,0 +1,11 @@
+description = "Two players: port 2 joins on the player screen, both pick the Rangers, then an exhibition faceoff with both on the ice"
+seconds = 50
+# Port 2 (WG3D_FAKE_PADS=2) presses START to join and A to PLAY; while it waits for port 1 the column says
+# WAITING FOR OTHER PLAYERS. Both players start on the same team; each confirms team and line.
+input = [[14.0, "START"], [16.0, "A"], [18.0, "2>START"], [20.0, "2>A"], [22.0, "A"], [25.0, "A"],
+         [28.0, "2>A"], [31.0, "A"], [34.0, "2>A"], [37.0, "A"]]
+captures = [[17.5, "port2_waiting_start"], [19.5, "port2_joined"], [21.5, "port2_waiting_others"],
+            [23.5, "team_select"], [29.5, "line_select_both"], [35.5, "intro"], [39.0, "faceoff"],
+            [44.0, "play_1", "nogolden"], [49.0, "play_2", "nogolden"]]
+env = { WG3D_FAKE_PADS = "2" }
+ares = false

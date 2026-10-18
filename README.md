@@ -55,8 +55,8 @@ Settings live next to the saves and are created with defaults on first run; edit
 (`Auto`/`D3D12`/`Vulkan`). `window.json` remembers the window's size and position.
 
 Verification scripts: `tools/verify_syms.py`, `tools/verify_recompile.py`, `tools/verify_boot.py`. Scenario tests:
-`python tools/run_scenario.py all` (runs the game at 10x speed, 3 sessions at a time; `--speed 1 --jobs 1` for
-real time).
+`python tools/run_scenario.py quick` after a change, `all` before a release (runs the game at 10x speed, 3 sessions
+at a time; `--speed 1 --jobs 1` for real time). What has been checked, and how: [docs/correctness.md](docs/correctness.md).
 
 ## License
 Copyright (C) 2026 geno55. This repository (`src/`, `include/`, `tools/`, tests, configs, docs) is licensed under

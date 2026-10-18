@@ -42,6 +42,12 @@ compute: expensive runs are rare and their results are kept.
 
 ## v0.4.0 — Correctness pass
 
+Status: done. Every row in `docs/correctness.md` passes or can't apply to wg3d (n/a, with the reason).
+Coverage went from 81.9% to 93.9% of the compiled bytes. The pass found and fixed two bugs: a full
+Controller Pak overwrote another note (runtime patch 0004), and a crash on quit. Gameplay goldens turned out
+to be only partly possible: gameplay branches between test runs even with the fixed seed, so only menus and
+the start and end of a game have them.
+
 This is the core of 1.0. Playing the game counts as evidence: not everything has to be automated.
 
 - **`docs/correctness.md`.** **S** Lists every game mode and system with its status (pass / fail /

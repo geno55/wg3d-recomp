@@ -10,13 +10,20 @@ Scenario file:
     seconds = 20                          # run length (wg3d: --frames seconds*60)
     input = [[14.0, "START"], [15.5, "Y=-1", 0.2]]   # [time, spec, optional duration]; spec as
                                           # WG3D_INPUT_SCRIPT: A B Z START L R DU DD DL DR CU CD CL CR, X=/Y=
+                                          # ("2>START" = port 2; needs WG3D_FAKE_PADS and ares = false)
     captures = [[17.0, "menu"]]           # [time, label] or [time, label, "nogolden"] (varies run to run,
-                                          # e.g. in-game shots: the game's random seed depends on timing)
-    env = { WG3D_FAKE_PADS = "4" }        # optional extra environment for wg3d
+                                          # see Determinism below)
+    env = { WG3D_FAKE_PADS = "4" }        # optional extra environment for wg3d (WG3D_FIXED_SEED defaults
+                                          # to FIXED_SEED: menus repeat exactly, see Determinism below)
+    tier = "quick"                        # optional: "quick" scenarios run after every change, the rest
+                                          # (default "full") only before a release
     expect = ["regex", ...]               # optional: must appear in wg3d's stderr
     threshold = 0.95                      # optional: golden similarity threshold (default 0.95)
     ares = true                           # optional: false if the scenario can't run on ares
     pak = true                            # optional: false to start without a Controller Pak
+    pak_notes = 16                        # optional: port 1's pak starts with this many notes from another
+    pak_note_pages = 1                    # game, each this many 256-byte pages (16 notes = no free note
+                                          # slots; 15 x 8 pages leaves 3 of 123 pages: both "PAK IS FULL")
 
 Times are seconds from window creation. wg3d's clock (wg3d::input::script_time) counts VIs from game
 start, which is about GAME_START seconds after the window opens, so the harness subtracts that. ares
@@ -28,15 +35,19 @@ capture, audio muted, and the game held on each capture's exact VI (src/main/cap
 --jobs 3 at a time. --speed 1 --jobs 1 is the old real-time behaviour; --frame-log forces --speed 1.
 
 Outputs (ROM-derived, git-ignored):
-    build/scen/<name>/wg3d/<label>.png, build/scen/<name>/ares/<label>.png, build/scen/<name>/compare.png
+    build/scen/<name>/wg3d/<label>.png, build/scen/<name>/compare.png (wg3d next to ares)
+    ares captures: build/ref/ares/<name>/<label>.png (kept: capture once, rerun only when a scenario changes)
     goldens: build/ref/scen/<name>/<label>.png (written by --update-goldens; review them!)
+
+Determinism: with the fixed seed, menus, the start of a game and the screens after it repeat exactly.
+Gameplay (attract mode too) still branches from run to run, at a different moment each time (host thread timing in lockstep mode, not tracked down yet), so those captures are "nogolden".
 
 ares runs need --interactive: the harness focuses the ares window and sends keystrokes with SendInput.
 Before every keystroke it checks that ares is still the foreground window and aborts otherwise, so input
 never lands in another application. Don't use the mouse or keyboard during an ares run.
 
 Usage:
-    python tools/run_scenario.py all|<name>... [--target wg3d|ares|both] [--interactive] [--update-goldens]
+    python tools/run_scenario.py all|quick|<name>... [--target wg3d|ares|both] [--interactive] [--update-goldens]
                                  [--speed N] [--jobs N]
     python tools/run_scenario.py --list
     python tools/run_scenario.py all --exe build/cmake-trace/wg3d.exe --coverage   (coverage run)
@@ -48,6 +59,7 @@ import ctypes
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import time
@@ -66,10 +78,14 @@ ROM = Path(os.environ.get("WG3D_ROM") or ROOT / "baserom.us.z64").resolve()
 SCEN_DIR = ROOT / "tests" / "scenarios"
 OUT = BUILD / "scen"
 GOLDEN = BUILD / "ref" / "scen"
+ARES_REF = BUILD / "ref" / "ares"
 ARES_OFFSET = 2.5
 # wg3d's game starts ~0.4 s after its window opens ("[wg3d] game started ..." in its log); scenario times
 # were recorded from window creation.
 GAME_START = 0.4
+# The game seeds rand() from osGetTime() at startup; pinning it makes CPU players, the puck and fights
+# repeat exactly, so in-game captures can have goldens (src/game/test_hooks.cpp).
+FIXED_SEED = "0x5EED"
 ERROR_PATTERNS = re.compile(r"CRASH|Failed to find function|exited unexpectedly|UnhandledJumpTarget|"
                             r"unknown RSP task|unexpected audio ucode|Assertion|No registered RSP ucode|capture: .* FAILED")
 
@@ -98,7 +114,25 @@ def load(name):
     sc.setdefault("threshold", 0.95)
     sc.setdefault("ares", True)
     sc.setdefault("pak", True)
+    sc.setdefault("tier", "full")
+    sc.setdefault("pak_notes", 0)
+    sc.setdefault("pak_note_pages", 1)
     return sc
+
+
+def fill_pak(data, notes, pages):
+    """Port 1's pak with `notes` notes of `pages` pages each from another game, in ultramodern's pak layout
+    (saves/controllerpak_port1/: controllerpak_header.bin = 16 x OSPfsState, little-endian; one
+    controllerpak_file_<n>.bin per note)."""
+    d = data / "saves" / "controllerpak_port1"
+    d.mkdir(parents=True, exist_ok=True)
+    header = bytearray(16 * 32)
+    for n in range(notes):
+        # file_size, game_code, company_code, ext_name[4], game_name[16], padding
+        header[n * 32:(n + 1) * 32] = struct.pack("<IIH4s16sH", 256 * pages, 0x4E585858, 0x3031, b"\0" * 4,
+                                                  f"NOTE{n:02d}".encode().ljust(16, b"\0"), 0)
+        (d / f"controllerpak_file_{n}.bin").write_bytes(bytes(256 * pages))
+    (d / "controllerpak_header.bin").write_bytes(bytes(header))
 
 
 def game_time(t):
@@ -124,7 +158,10 @@ def run_wg3d(sc, update_goldens, exe=EXE, coverage=False, frame_log=False, extra
         if d.exists():
             shutil.rmtree(d)
         d.mkdir(parents=True)
+    if sc["pak_notes"]:
+        fill_pak(data, sc["pak_notes"], sc["pak_note_pages"])
     env = {k: v for k, v in os.environ.items() if not k.startswith("WG3D_")}
+    env["WG3D_FIXED_SEED"] = FIXED_SEED
     env.update({k: str(v) for k, v in sc["env"].items()})
     env.update(extra_env or {})
     env["WG3D_INPUT_SCRIPT"] = input_script(sc)
@@ -351,7 +388,7 @@ def run_ares(sc):
     if not exe:
         return ["ares not installed (winget install ares-emulator.ares)"]
     name = sc["name"]
-    out = OUT / name / "ares"
+    out = ARES_REF / name
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
@@ -437,7 +474,7 @@ def side_by_side(sc):
     for c in sc["captures"]:
         label = c[1]
         ours = OUT / sc["name"] / "wg3d" / f"{label}.png"
-        theirs = OUT / sc["name"] / "ares" / f"{label}.png"
+        theirs = ARES_REF / sc["name"] / f"{label}.png"
         if ours.exists() or theirs.exists():
             rows.append((label, ours if ours.exists() else None, theirs if theirs.exists() else None))
     if not rows:
@@ -481,9 +518,15 @@ def main() -> int:
     all_names = sorted(p.stem for p in SCEN_DIR.glob("*.toml"))
     if args.list or not args.names:
         for n in all_names:
-            print(f"{n:22} {load(n).get('description', '')}")
+            sc = load(n)
+            print(f"{n:22} {sc['tier']:5}  {sc.get('description', '')}")
         return 0
-    names = all_names if args.names == ["all"] else args.names
+    if args.names == ["all"]:
+        names = all_names
+    elif args.names == ["quick"]:
+        names = [n for n in all_names if load(n)["tier"] == "quick"]
+    else:
+        names = args.names
     if args.target != "wg3d" and not args.interactive:
         print("ares runs send keystrokes to the ares window; pass --interactive and don't touch the keyboard/mouse.")
         return 2

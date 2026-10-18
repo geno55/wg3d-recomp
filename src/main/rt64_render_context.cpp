@@ -20,6 +20,9 @@
 #include "wg3d_render.h"
 #include "wg3d_stats.h"
 
+// src/game/test_hooks.cpp: WG3D_WATCH / WG3D_POKE, run once per display list.
+void wg3d_watch(uint8_t* rdram);
+
 static uint8_t DMEM[0x1000];
 static uint8_t IMEM[0x1000];
 
@@ -210,6 +213,7 @@ void wg3d::renderer::RT64Context::send_dl(const OSTask* task) {
     wg3d::stats::display_lists++;
     wg3d::stats::summarize_dl(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
     wg3d::framelog::on_display_list(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
+    wg3d_watch(app->core.RDRAM);  // WG3D_WATCH (src/game/test_hooks.cpp)
     if (!wg3d::capture::render_needed()) {
         return;  // fast test run, no capture coming up (wg3d_capture.h)
     }

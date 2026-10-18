@@ -1,4 +1,5 @@
 description = "One session: boot screens, main menu, Setup/Options, Records, Play Season -> Controller Pak restore, then Play Game -> exhibition -> pause"
+tier = "quick"
 seconds = 84
 # B backs out one menu level and the main-menu cursor keeps its position. (B on the main menu itself exits
 # to the title/attract loop, so never press it there.)
@@ -19,6 +20,6 @@ captures = [
     [21.8, "setup"], [25.0, "options"], [29.0, "menu_setup"],
     [33.0, "records"], [36.0, "records_gretzky"], [40.0, "menu_records"],
     [45.5, "season_menu"], [48.5, "pak_restore"], [51.5, "menu_season"],
-    [56.5, "players"], [59.0, "team_select", "nogolden"], [62.0, "line_select", "nogolden"],
-    [67.5, "intro", "nogolden"], [71.5, "rink", "nogolden"], [77.5, "faceoff", "nogolden"], [82.0, "pause", "nogolden"],
+    [56.5, "players"], [59.0, "team_select"], [62.0, "line_select"],
+    [67.5, "intro"], [71.5, "rink"], [77.5, "faceoff", "nogolden"], [82.0, "pause", "nogolden"],
 ]

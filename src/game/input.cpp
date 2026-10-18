@@ -18,7 +18,8 @@
 // Testing without a pad: WG3D_INPUT_SCRIPT="t:spec[:dur];..." presses `spec` on port 1 at t seconds
 // for dur seconds (default 0.15). Script time is game time, VIs delivered since the game started / 60,
 // so a script hits the same frames at any --speed and under host load. spec is '+'-joined button names (A B Z START L R DU DD DL
-// DR CU CD CL CR) and/or X=<f> / Y=<f> stick values, e.g. "12:START;14.5:A;16:Y=-1:0.5".
+// DR CU CD CL CR) and/or X=<f> / Y=<f> stick values, e.g. "12:START;14.5:A;16:Y=-1:0.5". A "<n>>" prefix
+// sends the event to port n instead (with WG3D_FAKE_PADS >= n), e.g. "15:2>START".
 // WG3D_INPUT_LOG=1 logs every change of the buttons/stick the game receives.
 // WG3D_FAKE_PADS=N reports ports 2..N as connected idle controllers (port-detection tests, boot gate).
 // WG3D_PAKS="1,2" sets which ports have a Controller Pak inserted, overriding general.json
@@ -53,6 +54,7 @@ namespace {
     };
 
     struct ScriptEvent {
+        int port;
         double start, end;
         uint16_t buttons;
         bool has_x, has_y;
@@ -165,6 +167,10 @@ namespace {
             ScriptEvent ev{};
             ev.start = std::atof(t.c_str());
             ev.end = ev.start + (dur.empty() ? 0.15 : std::atof(dur.c_str()));
+            if (spec.size() > 2 && spec[1] == '>' && spec[0] >= '1' && spec[0] <= '0' + NumPorts) {
+                ev.port = spec[0] - '1';
+                spec = spec.substr(2);
+            }
             std::stringstream parts{ spec };
             std::string part;
             while (std::getline(parts, part, '+')) {
@@ -177,10 +183,10 @@ namespace {
         std::fprintf(stderr, "[wg3d] input script: %zu events\n", script.size());
     }
 
-    void apply_script(PortState& s) {
+    void apply_script(int port, PortState& s) {
         double t = script_time();
         for (const ScriptEvent& ev : script) {
-            if (t >= ev.start && t < ev.end) {
+            if (ev.port == port && t >= ev.start && t < ev.end) {
                 s.buttons |= ev.buttons;
                 if (ev.has_x) s.x = ev.x;
                 if (ev.has_y) s.y = ev.y;
@@ -292,7 +298,7 @@ bool wg3d::input::get_input(int port, uint16_t* buttons, float* x, float* y) {
     PortState s = snapshot[port];
     // The script is applied here, on the game thread, so presses line up with VIs even when the main
     // thread's update() runs less often than VIs arrive (--speed).
-    if (port == 0) apply_script(s);
+    apply_script(port, s);
     if (log_input) {
         const PortState& a = last_logged[port];
         if (a.connected != s.connected || a.buttons != s.buttons || a.x != s.x || a.y != s.y) {

@@ -2,6 +2,8 @@
 *.z64
 *.v64
 *.n64
+# ares writes its Controller Pak next to the ROM
+*.pak
 assets/
 RecompiledFuncs/
 rsp/aspMain.cpp
@@ -22,4 +24,3 @@ wg3d.us.trace.toml
 # Per-phase planning/status notes stay local
 docs/phase*.md
 local_paths.toml
-docs/coverage.md

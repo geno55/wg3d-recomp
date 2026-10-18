@@ -1,4 +1,5 @@
 description = "Second menu session: Records sub-pages (incl. deleting the pak note with L+R), Setup -> Controls/Audio, Play Season -> Password"
+tier = "quick"
 seconds = 78
 input = [
     [14.0, "START"],
@@ -19,7 +20,7 @@ input = [
 env = { WG3D_PFS_LOG = "1" }
 expect = ['osPfsDeleteFile\(channel 0\) -> 0']
 captures = [
-    [21.0, "records_menu"], [25.0, "high_scores"], [31.0, "team_stats"], [35.8, "pak_notes"], [37.2, "pak_notes_delete", "nogolden"], [38.2, "pak_notes_yes", "nogolden"], [39.5, "pak_notes_after", "nogolden"], [45.0, "pak_stats"],
+    [21.0, "records_menu"], [25.0, "high_scores"], [31.0, "team_stats"], [35.8, "pak_notes"], [37.2, "pak_notes_delete"], [38.2, "pak_notes_yes"], [39.5, "pak_notes_after"], [45.0, "pak_stats"],
     [49.0, "menu_records"], [52.5, "setup_menu"], [56.5, "controls"], [62.5, "audio"], [66.5, "menu_setup"],
     [71.5, "season_menu"], [76.0, "password"],
 ]

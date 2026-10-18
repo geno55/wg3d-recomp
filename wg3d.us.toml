@@ -79,3 +79,13 @@ text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.m
 func = "func_80047E5C"
 before_vram = 0x80047F50
 text = "wg3d_seed_override(rdram, ctx); /* wg3d: WG3D_FIXED_SEED */"
+
+[[patches.hook]]
+func = "func_80037A04"
+before_vram = 0x80037D30
+text = "wg3d_fight_log(rdram, ctx); /* wg3d: WG3D_FIGHT_LOG */"
+
+[[patches.hook]]
+func = "func_80037A04"
+before_vram = 0x80037F40
+text = "wg3d_fight_start(rdram, ctx); /* wg3d: WG3D_FIGHT_LOG, jal func_8003752C */"

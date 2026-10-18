@@ -32,9 +32,22 @@ for ($k = 0; $k -lt $Count; $k++) {
     if ($w -le 0 -or $hgt -le 0) { "[shot] empty client rect"; continue }
     $bmp = New-Object System.Drawing.Bitmap $w, $hgt
     $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $hdc = $g.GetHdc()
-    [WinCap]::PrintWindow($h, $hdc, 3) | Out-Null  # PW_CLIENTONLY | PW_RENDERFULLCONTENT
-    $g.ReleaseHdc($hdc)
+    # PrintWindow on ares's OpenGL window sometimes returns an all-black image; retry briefly (as
+    # tools/run_scenario.py does). A screen that really is black just costs the retries.
+    for ($attempt = 0; $attempt -lt 25; $attempt++) {
+        $hdc = $g.GetHdc()
+        [WinCap]::PrintWindow($h, $hdc, 3) | Out-Null  # PW_CLIENTONLY | PW_RENDERFULLCONTENT
+        $g.ReleaseHdc($hdc)
+        $lit = $false
+        for ($y = 0; $y -lt $hgt -and -not $lit; $y += [Math]::Max(1, [int]($hgt / 24))) {
+            for ($x = 0; $x -lt $w; $x += [Math]::Max(1, [int]($w / 32))) {
+                $px = $bmp.GetPixel($x, $y)
+                if ($px.R -or $px.G -or $px.B) { $lit = $true; break }
+            }
+        }
+        if ($lit) { break }
+        Start-Sleep -Milliseconds 40
+    }
     $file = if ($Count -eq 1) { Join-Path $root "build\$Name.png" } else { Join-Path $root ("build\{0}_{1:D3}.png" -f $Name, $k) }
     $bmp.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose(); $bmp.Dispose()

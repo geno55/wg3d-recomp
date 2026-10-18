@@ -1,0 +1,35 @@
+diff --git a/ultramodern/src/pfs.cpp b/ultramodern/src/pfs.cpp
+--- a/ultramodern/src/pfs.cpp
++++ b/ultramodern/src/pfs.cpp
+@@ -242,18 +242,26 @@
+         return PFS_ERR_INVALID;
+     }
+ 
+-    pfs_header_t hdr{};
+-    u8 free_file_index = 0;
+-    for (size_t i = 0; i < MAX_FILES; i++) {
++    // wg3d (patch 0004): a full directory returns PFS_DIR_FULL (free_file_index started at 0, so with all
++    // 16 notes in use the new note overwrote note 0), and a note that doesn't fit in the free pages
++    // returns PFS_DATA_FULL.
++    pfs_header_t hdr{};
++    int free_file_index = MAX_FILES;
++    int pages_used = 0;
++    for (int i = 0; i < MAX_FILES; i++) {
+         pfs_header_read(channel, i, hdr);
+-        if (!hdr.valid()) {
++        if (hdr.valid()) {
++            pages_used += hdr.file_size >> 8;
++        } else if (free_file_index == MAX_FILES) {
+             free_file_index = i;
+-            break;
+         }
+     }
+ 
+     if (free_file_index == MAX_FILES) {
+         return PFS_DIR_FULL;
++    }
++    if (pages_used + ((nbytes + 255) >> 8) > MAX_PAGES) {
++        return PFS_DATA_FULL;
+     }
+     if (!pfs_header_write(channel, free_file_index, pfs_header_t{(uint32_t)nbytes, game_code, company_code, (char*)ext_name, (char*)game_name})) {
+         return PFS_ERR_INVALID;

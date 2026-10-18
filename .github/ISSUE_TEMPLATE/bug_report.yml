@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in the game behaves differently from the N64 original, crashes, or doesn't work
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please don't attach the ROM or anything extracted from it.
+        If the game behaves differently from the original N64 game (or an accurate emulator such as ares),
+        say so: those reports get the `correctness` label.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release you're running (shown in the first line of wg3d.log), e.g. v0.4.0.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected (from the original game, if you know it) and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to get there
+      description: Game mode and menu path, e.g. Play Season > New Short Season > 2nd game, 3rd period.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - Differs from the N64 original (correctness)
+        - Crash or freeze
+        - Graphics glitch
+        - Audio problem
+        - Controls / input
+        - Controller Pak saves
+        - Settings / window / other
+    validations:
+      required: true
+  - type: textarea
+    id: system
+    attributes:
+      label: System
+      description: Windows version, GPU, graphics_api in graphics.json (Auto/D3D12/Vulkan), controller model.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log and crash report
+      description: |
+        Drag in %APPDATA%\WG3DRecomp\logs\wg3d.log from the run where it happened (or wg3d.1.log if you
+        started the game again since), and the crash-<date>-<time>.txt next to it if there is one.

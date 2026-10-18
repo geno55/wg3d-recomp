@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(WG3DRecomp VERSION 0.3.0 LANGUAGES C CXX)
+project(WG3DRecomp VERSION 0.4.0 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
@@ -35,27 +35,51 @@ FetchContent_MakeAvailable(sdl2)
 include_directories(${sdl2_SOURCE_DIR}/include)
 link_directories(${sdl2_SOURCE_DIR}/lib/x64)
 
-# This project's changes to the runtime (patches/runtime/, in file-name order). A patch whose reverse
-# applies cleanly is already in the tree and is skipped, so reconfiguring is harmless.
+# This project's changes to the runtime (patches/runtime/, applied in file-name order). A hash of the patch
+# set is kept in the submodule's git directory; when it differs (first configure, or patches added or
+# changed), whichever of these patches are in the tree are undone, newest first, and the whole set is
+# applied again. Later patches can change lines earlier ones added, so each step applies for real (git
+# apply doesn't chain several patches to one file in a single check).
 find_package(Git REQUIRED)
+set(RUNTIME_DIR ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime)
 file(GLOB RUNTIME_PATCHES ${CMAKE_SOURCE_DIR}/patches/runtime/*.patch)
 list(SORT RUNTIME_PATCHES)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RUNTIME_PATCHES})
+set(patch_set "")
 foreach(patch IN LISTS RUNTIME_PATCHES)
+    file(SHA1 ${patch} patch_hash)
     get_filename_component(patch_name ${patch} NAME)
-    execute_process(COMMAND ${GIT_EXECUTABLE} apply --reverse --check ${patch}
-                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime
-                    RESULT_VARIABLE patch_present OUTPUT_QUIET ERROR_QUIET)
-    if(NOT patch_present EQUAL 0)
-        execute_process(COMMAND ${GIT_EXECUTABLE} apply ${patch}
-                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime
+    string(APPEND patch_set "${patch_name} ${patch_hash}\n")
+endforeach()
+execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --absolute-git-dir WORKING_DIRECTORY ${RUNTIME_DIR}
+                OUTPUT_VARIABLE runtime_git_dir OUTPUT_STRIP_TRAILING_WHITESPACE)
+set(patch_stamp ${runtime_git_dir}/wg3d-applied-patches)
+set(applied_set "")
+if(EXISTS ${patch_stamp})
+    file(READ ${patch_stamp} applied_set)
+endif()
+if(NOT applied_set STREQUAL patch_set)
+    set(undo_patches ${RUNTIME_PATCHES})
+    list(REVERSE undo_patches)
+    foreach(patch IN LISTS undo_patches)
+        execute_process(COMMAND ${GIT_EXECUTABLE} apply --reverse --check ${patch} WORKING_DIRECTORY ${RUNTIME_DIR}
+                        RESULT_VARIABLE patch_present OUTPUT_QUIET ERROR_QUIET)
+        if(patch_present EQUAL 0)
+            execute_process(COMMAND ${GIT_EXECUTABLE} apply --reverse ${patch} WORKING_DIRECTORY ${RUNTIME_DIR})
+        endif()
+    endforeach()
+    foreach(patch IN LISTS RUNTIME_PATCHES)
+        get_filename_component(patch_name ${patch} NAME)
+        execute_process(COMMAND ${GIT_EXECUTABLE} apply ${patch} WORKING_DIRECTORY ${RUNTIME_DIR}
                         RESULT_VARIABLE patch_result ERROR_VARIABLE patch_error)
         if(NOT patch_result EQUAL 0)
-            message(FATAL_ERROR "Runtime patch ${patch_name} does not apply to lib/N64ModernRuntime:\n${patch_error}")
+            message(FATAL_ERROR "Runtime patch ${patch_name} does not apply to lib/N64ModernRuntime:\n${patch_error}"
+                                "If the submodule has other local changes, reset it: git -C lib/N64ModernRuntime checkout -- .")
         endif()
         message(STATUS "Applied runtime patch ${patch_name}")
-    endif()
-endforeach()
+    endforeach()
+    file(WRITE ${patch_stamp} "${patch_set}")
+endif()
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/rt64 ${CMAKE_BINARY_DIR}/rt64)
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime ${CMAKE_BINARY_DIR}/N64ModernRuntime)

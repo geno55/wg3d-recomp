@@ -38,7 +38,7 @@ VCVARS = r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Aux
 # Generated-code noise only (same classes the reference projects silence). Implicit declarations stay on.
 NOISE_FLAGS = "-Wno-unused-variable -Wno-unused-label -Wno-unused-but-set-variable"
 # Busy-wait loops (tools/find_spinloops.py, docs/spinloops.md) rely on N64 preemption; ultramodern
-# switches threads only inside OS calls, so each loop gets a wg3d_spin_yield() hook (yield_self_1ms) at its head.
+# switches threads only inside OS calls, so each loop gets a wg3d_spin_yield() hook (src/game/test_hooks.cpp) at its head.
 # Every polled flag must be listed here with who releases it; an unlisted loop is an error.
 SPIN_FLAGS = {
     0x8009F38C: "scheduler's count of gfx tasks in flight: +1 in func_80003898 when a gfx task is queued, "
@@ -58,8 +58,12 @@ def toml_list(items) -> str:
 # osGetTime() in its main thread: func_80047E5C, `jal srand_wrapper; move $a0, $v1` at 0x80047F50.
 # wg3d_seed_override() replaces $v1 there when WG3D_FIXED_SEED is set (no-op otherwise), so test runs
 # can be repeated with the same random sequence.
+# wg3d_fight_log() runs right after a check adds to the checked player's fight meter (float at +0x2B0
+# of the player struct, capped at 100; func_80037A04 starts a fight at 100), for WG3D_FIGHT_LOG/_FORCE.
 TEST_HOOKS = [
     ("func_80047E5C", 0x80047F50, "wg3d_seed_override(rdram, ctx); /* wg3d: WG3D_FIXED_SEED */"),
+    ("func_80037A04", 0x80037D30, "wg3d_fight_log(rdram, ctx); /* wg3d: WG3D_FIGHT_LOG */"),
+    ("func_80037A04", 0x80037F40, "wg3d_fight_start(rdram, ctx); /* wg3d: WG3D_FIGHT_LOG, jal func_8003752C */"),
 ]
 
 
