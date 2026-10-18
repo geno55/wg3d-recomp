@@ -27,6 +27,8 @@ from rom_map import DATA_END, LIBULTRA_TEXT_START, RSP_TEXT_END, TEXT_END, TEXT_
 
 ROOT = Path(__file__).resolve().parent.parent
 REFS = ["build/sigs/libultra_mk64_O2.a", "build/sigs/libultra_mk64.a", "build/sigs/libultra_rom.E.a"]
+# Runtime gaps this project fills itself (the declarations come from tools/gen_config.py RUNTIME_GAPS).
+PROJECT_IMPL = {"osPiRawReadIo": "src/game/pi.cpp"}
 
 # Identified by fuzzy matching (tools/libmatch.py, score in the coverage report) plus call-graph
 # checks. Each one overrides or adds to the n64sym name at that address.
@@ -233,8 +235,10 @@ def main() -> int:
         a = by_name[n]
         live = callers_outside_ignored(a)
         has = n in runtime
-        status = "ok" if has or not live else "**GAP**"
-        if status != "ok":
+        if has or not live:
+            status = "ok"
+        else:
+            status = f"gap, implemented in `{PROJECT_IMPL[n]}`" if n in PROJECT_IMPL else "**GAP**"
             gaps.append((n, a, live))
         md.append(f"| `{n}` | `{a:08X}` | {'yes' if has else 'no'} | {len(live)} | {status} |")
     md.append("")
@@ -282,7 +286,8 @@ def main() -> int:
     if gaps:
         for n, a, live in gaps:
             who = ", ".join(sorted({f"`{t.func_of(c):08X}`" for c in live}))
-            md.append(f"- `{n}` (`{a:08X}`): skipped by N64Recomp, no runtime implementation, called from {who}.")
+            impl = f" Implemented by this project in `{PROJECT_IMPL[n]}`." if n in PROJECT_IMPL else ""
+            md.append(f"- `{n}` (`{a:08X}`): skipped by N64Recomp, no runtime implementation, called from {who}.{impl}")
     else:
         md.append("- None.")
     md.append("")

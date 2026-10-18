@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(WG3DRecomp VERSION 0.2.0 LANGUAGES C CXX)
+project(WG3DRecomp VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
@@ -34,6 +34,28 @@ FetchContent_Declare(sdl2
 FetchContent_MakeAvailable(sdl2)
 include_directories(${sdl2_SOURCE_DIR}/include)
 link_directories(${sdl2_SOURCE_DIR}/lib/x64)
+
+# This project's changes to the runtime (patches/runtime/, in file-name order). A patch whose reverse
+# applies cleanly is already in the tree and is skipped, so reconfiguring is harmless.
+find_package(Git REQUIRED)
+file(GLOB RUNTIME_PATCHES ${CMAKE_SOURCE_DIR}/patches/runtime/*.patch)
+list(SORT RUNTIME_PATCHES)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RUNTIME_PATCHES})
+foreach(patch IN LISTS RUNTIME_PATCHES)
+    get_filename_component(patch_name ${patch} NAME)
+    execute_process(COMMAND ${GIT_EXECUTABLE} apply --reverse --check ${patch}
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime
+                    RESULT_VARIABLE patch_present OUTPUT_QUIET ERROR_QUIET)
+    if(NOT patch_present EQUAL 0)
+        execute_process(COMMAND ${GIT_EXECUTABLE} apply ${patch}
+                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime
+                        RESULT_VARIABLE patch_result ERROR_VARIABLE patch_error)
+        if(NOT patch_result EQUAL 0)
+            message(FATAL_ERROR "Runtime patch ${patch_name} does not apply to lib/N64ModernRuntime:\n${patch_error}")
+        endif()
+        message(STATUS "Applied runtime patch ${patch_name}")
+    endif()
+endforeach()
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/rt64 ${CMAKE_BINARY_DIR}/rt64)
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime ${CMAKE_BINARY_DIR}/N64ModernRuntime)

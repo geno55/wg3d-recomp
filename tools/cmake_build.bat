@@ -1,6 +1,6 @@
 @echo off
 rem Usage: tools\cmake_build.bat <target...>   (configures build/cmake with Ninja + clang-cl, Release)
-rem WG3D_BUILD_DIR overrides the build directory (tools/verify_phase2.py uses build/cmake-verify).
+rem WG3D_BUILD_DIR overrides the build directory (tools/verify_recompile.py uses build/cmake-verify).
 rem WG3D_CMAKE_ARGS adds configure arguments, e.g. the trace/coverage build:
 rem   set WG3D_BUILD_DIR=build/cmake-trace & set WG3D_CMAKE_ARGS=-DWG3D_TRACE=ON & tools\cmake_build.bat wg3d
 if "%1"=="" (echo usage: cmake_build.bat target & exit /b 2)

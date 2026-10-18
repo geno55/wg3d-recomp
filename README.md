@@ -23,15 +23,16 @@ Pak. A correctness pass is in progress; see [docs/ROADMAP.md](docs/ROADMAP.md) f
 ```
 git clone --recursive https://github.com/geno55/wg3d-recomp.git
 cd wg3d-recomp
-git -C lib/N64ModernRuntime apply ../../patches/runtime/0001-ultramodern-vi-null-mode.patch
-git -C lib/N64ModernRuntime apply ../../patches/runtime/0002-ultramodern-pfs-per-port-and-log.patch
-git -C lib/N64ModernRuntime apply ../../patches/runtime/0003-ultramodern-speed-lockstep.patch
 python tools/rom_prep.py path/to/your/rom.v64          # -> baserom.us.z64 (checks sha1 and CIC)
 cmake -S lib/N64Recomp -B lib/N64Recomp/build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build lib/N64Recomp/build                      # N64Recomp.exe + RSPRecomp.exe
 python tools/gen_config.py                             # wg3d.us.toml -> RecompiledFuncs/
 tools\cmake_build.bat wg3d                             # -> build/cmake/wg3d.exe
 ```
+Configuring applies `patches/runtime/*.patch` to `lib/N64ModernRuntime` (patches already in the tree are
+skipped). Run `tools\cmake_build.bat` from PowerShell or cmd, not Git Bash.
+
+`python tools/package_release.py` packages a Release build as `build/release/wg3d-recomp-v<version>-windows-x64.zip`.
 
 ## Run
 ```
@@ -53,8 +54,9 @@ Settings live next to the saves and are created with defaults on first run; edit
 (`Original`/`Display`/`Manual`), `refresh_rate_manual`, `high_precision_framebuffer` and `graphics_api`
 (`Auto`/`D3D12`/`Vulkan`). `window.json` remembers the window's size and position.
 
-Verification scripts: `tools/verify_*.py`. Scenario tests: `python tools/run_scenario.py all` (runs the game at
-10x speed, 3 sessions at a time; `--speed 1 --jobs 1` for real time).
+Verification scripts: `tools/verify_syms.py`, `tools/verify_recompile.py`, `tools/verify_boot.py`. Scenario tests:
+`python tools/run_scenario.py all` (runs the game at 10x speed, 3 sessions at a time; `--speed 1 --jobs 1` for
+real time).
 
 ## License
 Copyright (C) 2026 geno55. This repository (`src/`, `include/`, `tools/`, tests, configs, docs) is licensed under
@@ -71,4 +73,4 @@ the ROM is in this repository.
 ## Runtime patches
 `lib/N64ModernRuntime` is pinned to sonicdcer's `controller_pak_super_rebase` branch (Controller Pak support);
 `patches/runtime/` holds this project's three changes on top (VI null-mode fix, per-port paks + pak call log,
-and a lockstep speed multiplier for fast test runs).
+and a lockstep speed multiplier for fast test runs), applied when CMake configures.

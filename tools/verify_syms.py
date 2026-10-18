@@ -168,7 +168,7 @@ def main() -> int:
     if errs:
         print("ERRORS:\n  " + "\n  ".join(errs[:40]))
         return 1
-    print("PHASE 1 VERIFIED")
+    print("SYMBOLS GATE PASSED")
     return 0
 
 

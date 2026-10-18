@@ -12,7 +12,7 @@ Steps:
 
 Inputs that are kept (built in WSL with tools/wsl/*.sh): build/n64sym_*.txt, build/sigs/*.a.
 
-Usage: python tools/verify_phase2.py [--skip-phase1]
+Usage: python tools/verify_recompile.py [--skip-symbols]
 """
 import argparse
 import os
@@ -73,13 +73,13 @@ def run(name: str, cmd, cwd: str, env=None) -> bool:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--skip-phase1", action="store_true", help="skip step 1 (faster iteration)")
+    ap.add_argument("--skip-symbols", action="store_true", help="skip step 1 (faster iteration)")
     args = ap.parse_args()
     t0 = time.time()
     before = {rel: digest(rel) for rel in DETERMINISTIC}
     failures = []
 
-    steps = ([] if args.skip_phase1 else SYMBOL_STEPS) + RECOMPILE_CHECKS
+    steps = ([] if args.skip_symbols else SYMBOL_STEPS) + RECOMPILE_CHECKS
     for name, cmd, cwd in steps:
         if not run(name, cmd, cwd):
             failures.append(name)
@@ -120,7 +120,7 @@ def main() -> int:
     if failures:
         print("FAILED: " + ", ".join(failures))
         return 1
-    print("PHASE 2 VERIFIED")
+    print("RECOMPILE GATE PASSED")
     return 0
 
 

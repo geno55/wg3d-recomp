@@ -13,7 +13,7 @@ Costs: **S** = an evening, **M** = a few days, **L** = a week or more, or needs 
 There is no CI. Every check runs locally, on one machine, so the testing below is sized for limited
 compute: expensive runs are rare and their results are kept.
 
-## v0.3.0 — Build and release hygiene
+## v0.3.0 — Build and release hygiene (released)
 
 - **Apply the runtime patches automatically.** **S–M**
   - Today the Build steps in the README `git apply` three patches by hand.

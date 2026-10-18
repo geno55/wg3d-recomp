@@ -52,12 +52,12 @@ The code is generic but has this game's constants inside.
 | `src/main/main.cpp` | Title, `game_id`, internal name, XXH3 ROM hash, sha1 text, audio microcode address (`0x8009E530`), save type. The rest becomes a library entry point, `run_game(GameSpec)`, and each game's `main.cpp` shrinks to about 20 lines. |
 | `tools/rom_prep.py` | Expected sha1 and output file name. |
 | `tools/rom_map.py` | Entry point, main segment ROM/VRAM, text/data/BSS bounds, microcode ranges. Its region-scanning logic is generic. |
-| `tools/gen_config.py` | `SPIN_FLAGS`, `TEST_HOOKS` and `PHASE3_GAPS` become data in `game.toml`. The generator itself is generic. |
+| `tools/gen_config.py` | `SPIN_FLAGS`, `TEST_HOOKS` and `RUNTIME_GAPS` become data in `game.toml`. The generator itself is generic. |
 | `gen_syms.py`, `verify_syms.py`, `export_splat.py`, `run_ghidra.py`, `ghidra/WG3DExport.java`, `ghidra/WG3DSeed.java` | File names and seeds. `WG3DSeed.java`'s seed addresses become an input file. |
 | `gen_libsyms.py`, `libmatch.py`, `wsl/*.sh` | Generic libultra identification against reference libraries; game-specific only in paths. |
 | `hw_audit.py`, `check_indirect.py`, `find_spinloops.py`, `identify_ucode.py`, `check_aspmain.py`, `coverage_report.py`, `disasm.py` | Read `rom_map` and the symbols file. Generic once those come from `game.toml`. |
 | `find_overlays.py` | The DMA-wrapper search is partly generic, but its heuristics were tuned to this game. Needs the most rework. |
-| `verify_phase2.py`, `verify_phase3.py` | Tied to this project's phases. Replace with one generic `verify` command: recompile gate, boot gate, scenario gate. |
+| `verify_recompile.py`, `verify_boot.py` | Project-specific gates. Replace with one generic `verify` command: recompile gate, boot gate, scenario gate. |
 
 ## Stays per game
 

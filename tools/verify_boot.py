@@ -1,6 +1,6 @@
 """Boot gate.
 
-  1. Recompile gate (tools/verify_phase2.py), then the full CMake build of wg3d.exe (no warnings or
+  1. Recompile gate (tools/verify_recompile.py), then the full CMake build of wg3d.exe (no warnings or
      errors from this project's sources).
   2. Smoke runs of wg3d.exe in --frames mode against a throw-away data dir (build/gate_data), so
      the user's %APPDATA% saves are never touched:
@@ -18,7 +18,7 @@ References and goldens are derived from the ROM, so they live in build/ref/ (nev
   build/ref/ares_NNN.png       ares boot capture (made automatically if missing; needs ares)
   build/ref/golden_players4.png approved capture for run C (--update-goldens writes it; review it!)
 
-Usage: python tools/verify_phase3.py [--quick] [--update-goldens]
+Usage: python tools/verify_boot.py [--quick] [--update-goldens]
   --quick           skip the symbol chain inside the recompile gate
   --update-goldens  write the run C golden from this run instead of comparing
 """
@@ -137,9 +137,9 @@ def main() -> int:
     ok = True
 
     # 1. Builds.
-    r = subprocess.run([PY, str(ROOT / "tools" / "verify_phase2.py")] + (["--skip-phase1"] if args.quick else []),
+    r = subprocess.run([PY, str(ROOT / "tools" / "verify_recompile.py")] + (["--skip-symbols"] if args.quick else []),
                        cwd=ROOT, capture_output=True, text=True)
-    ok &= step("recompile gate", r.returncode == 0 and "PHASE 2 VERIFIED" in r.stdout,
+    ok &= step("recompile gate", r.returncode == 0 and "RECOMPILE GATE PASSED" in r.stdout,
                "" if r.returncode == 0 else r.stdout[-800:])
     r = subprocess.run(["cmd", "/c", str(ROOT / "tools" / "cmake_build.bat"), "wg3d"], cwd=ROOT,
                        capture_output=True, text=True, env={k: v for k, v in os.environ.items() if k != "WG3D_BUILD_DIR"})
@@ -148,7 +148,7 @@ def main() -> int:
             and re.search(r"wg3d-recomp[/\\](src|include)[/\\]", l)]
     ok &= step("build wg3d.exe", r.returncode == 0 and EXE.exists() and not ours, "; ".join(ours[:5]))
     if not ok:
-        print("PHASE 3 GATE FAILED (build)")
+        print("BOOT GATE FAILED (build)")
         return 1
 
     # 2A. First boot on an empty data dir.
@@ -213,7 +213,7 @@ def main() -> int:
                  "pak: play a Short Season game to the end (WG3D_PFS_LOG=1 shows a write), restart, restore it",
                  "period clock speed comparable with ares"]:
         print(f"  [ ] {item}")
-    print("\nPHASE 3 GATE " + ("PASSED (automated part)" if ok else "FAILED"))
+    print("\nBOOT GATE " + ("PASSED (automated part)" if ok else "FAILED"))
     return 0 if ok else 1
 
 
