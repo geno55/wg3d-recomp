@@ -92,6 +92,14 @@ This is the core of 1.0. Playing the game counts as evidence: not everything has
 
 ## v0.5.0 — Input and audio
 
+Status: done.
+- `controls.json`: remapping, keyboard port, deadzone, and pads reserved by name.
+- `sound.json`: master volume and mute when unfocused.
+- A pak in every port by default.
+
+The octagonal stick range needed no work: ultramodern already maps the stick onto the N64's octagon
+(`convert_to_n64_range`, radius 82). Music and SFX volume stay separate work (stretch goal).
+
 - **Remapping.** **M** A `controls.json` with up to two keys and two pad inputs per N64 button and stick
   direction. It replaces the fixed tables in `read_pad` / `read_keyboard` (`src/game/input.cpp`).
 - **Pads and paks.** **S–M**

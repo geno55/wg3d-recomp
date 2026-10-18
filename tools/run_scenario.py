@@ -20,7 +20,9 @@ Scenario file:
     expect = ["regex", ...]               # optional: must appear in wg3d's stderr
     threshold = 0.95                      # optional: golden similarity threshold (default 0.95)
     ares = true                           # optional: false if the scenario can't run on ares
-    pak = true                            # optional: false to start without a Controller Pak
+    pak = true                            # optional: false to start without a Controller Pak (default: one
+                                          # in port 1; env WG3D_PAKS overrides both)
+    controls = { keyboard_port = 2 }      # optional: start with these controls.json values (src/game/input.cpp)
     pak_notes = 16                        # optional: port 1's pak starts with this many notes from another
     pak_note_pages = 1                    # game, each this many 256-byte pages (16 notes = no free note
                                           # slots; 15 x 8 pages leaves 3 of 123 pages: both "PAK IS FULL")
@@ -56,6 +58,7 @@ Exit code 1 if any wg3d run fails (errors, missing expects, golden mismatch).
 import argparse
 import concurrent.futures
 import ctypes
+import json
 import os
 import re
 import shutil
@@ -116,6 +119,7 @@ def load(name):
     sc.setdefault("pak", True)
     sc.setdefault("tier", "full")
     sc.setdefault("pak_notes", 0)
+    sc.setdefault("controls", {})
     sc.setdefault("pak_note_pages", 1)
     return sc
 
@@ -160,6 +164,8 @@ def run_wg3d(sc, update_goldens, exe=EXE, coverage=False, frame_log=False, extra
         d.mkdir(parents=True)
     if sc["pak_notes"]:
         fill_pak(data, sc["pak_notes"], sc["pak_note_pages"])
+    if sc["controls"]:
+        (data / "controls.json").write_text(json.dumps(sc["controls"], indent=4), encoding="utf-8")
     env = {k: v for k, v in os.environ.items() if not k.startswith("WG3D_")}
     env["WG3D_FIXED_SEED"] = FIXED_SEED
     env.update({k: str(v) for k, v in sc["env"].items()})
@@ -167,8 +173,8 @@ def run_wg3d(sc, update_goldens, exe=EXE, coverage=False, frame_log=False, extra
     env["WG3D_INPUT_SCRIPT"] = input_script(sc)
     env["WG3D_CAPTURE"] = ",".join(f"{game_time(c[0])}:{c[1]}" for c in sc["captures"])
     env["WG3D_CAPTURE_DIR"] = str(out)
-    if not sc["pak"]:
-        env["WG3D_PAKS"] = "none"
+    # Scenarios pin the paks (a pak in port 1 only, or none) instead of following general.json's default.
+    env.setdefault("WG3D_PAKS", "1" if sc["pak"] else "none")
     if coverage:
         env["WG3D_COVERAGE_FILE"] = str(out_root / "coverage.txt")
     if frame_log:

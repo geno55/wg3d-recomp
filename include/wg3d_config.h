@@ -1,6 +1,6 @@
 #pragma once
-// Persistent settings: general.json, graphics.json and window.json in the app folder,
-// stored through librecomp's recomp::config::Config.
+// Persistent settings: general.json, graphics.json, sound.json and window.json in the app folder,
+// stored through librecomp's recomp::config::Config. (controls.json: src/game/input.cpp.)
 
 struct SDL_Window;
 
@@ -15,6 +15,12 @@ namespace wg3d::config {
     // Loads (or creates) the config files and applies the graphics settings to ultramodern. Call after
     // recomp::register_config_path and before recomp::start.
     void load();
+
+    struct SoundSettings {
+        int master_volume;         // 0-100
+        bool mute_when_unfocused;
+    };
+    SoundSettings sound_settings();
 
     // Controller Pak inserted in this port (0-3), per general.json. WG3D_PAKS overrides it in input.cpp.
     bool pak_inserted(int port);

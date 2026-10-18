@@ -1,8 +1,10 @@
-// Persistent settings. Three librecomp configs, each a JSON file in the app folder
+// Persistent settings. Four librecomp configs, each a JSON file in the app folder
 // (%APPDATA%\WG3DRecomp, or --data-dir):
 //   general.json   Controller Pak per port
 //   graphics.json  RT64 options (the ultramodern GraphicsConfig fields set_application_user_config maps)
+//   sound.json     master volume, mute when the window loses focus
 //   window.json    last windowed size/position and maximised state (state, not settings: rewritten on exit)
+// controls.json is read and written by src/game/input.cpp (its bindings are lists, not librecomp options).
 //
 // Defaults reproduce the pre-config behaviour. Missing or invalid values fall back to the default, and
 // each file is rewritten after loading so it always lists every option.
@@ -32,6 +34,7 @@ namespace {
 
     Config general{ "General", "general" };
     Config graphics{ "Graphics", "graphics" };
+    Config sound{ "Sound", "sound" };
     Config window{ "Window", "window" };
 
     std::mutex window_mutex;
@@ -58,7 +61,7 @@ namespace {
     void define_general() {
         for (int port = 0; port < wg3d::input::NumPorts; port++) {
             general.add_bool_option(pak_option(port), "Controller Pak in port " + std::to_string(port + 1),
-                                    "Saves go to saves/controllerpak_port<N>/ in the app folder.", port == 0);
+                                    "Saves go to saves/controllerpak_port<N>/ in the app folder.", true);
         }
     }
 
@@ -96,6 +99,12 @@ namespace {
         graphics.add_enum_option("graphics_api", "Graphics API", "Takes effect on the next launch.",
             { { GraphicsApi::Auto, "Auto" }, { GraphicsApi::D3D12, "D3D12" }, { GraphicsApi::Vulkan, "Vulkan" } },
             GraphicsApi::Auto);
+    }
+
+    void define_sound() {
+        sound.add_number_option("master_volume", "Master volume", "0-100 (percent).", 0, 100, 1, 0, false, 100);
+        sound.add_bool_option("mute_when_unfocused", "Mute when unfocused",
+                              "Silences the game while its window isn't the active one.", false);
     }
 
     void define_window() {
@@ -170,12 +179,15 @@ namespace {
 void wg3d::config::load() {
     define_general();
     define_graphics();
+    define_sound();
     define_window();
     load_one(general);
     nlohmann::json graphics_json = load_one(graphics);
+    nlohmann::json sound_json = load_one(sound);
     load_one(window);
     apply_graphics();
     std::fprintf(stderr, "[wg3d] config: graphics %s\n", graphics_json.dump().c_str());
+    std::fprintf(stderr, "[wg3d] config: sound %s\n", sound_json.dump().c_str());
 
     std::lock_guard lock{ window_mutex };
     window_now.has_position = get_bool(window, "has_position");
@@ -184,6 +196,10 @@ void wg3d::config::load() {
     window_now.width = (int)get_number(window, "width", MinWindowSize, MaxWindowSize);
     window_now.height = (int)get_number(window, "height", MinWindowSize, MaxWindowSize);
     window_now.maximized = get_bool(window, "maximized");
+}
+
+wg3d::config::SoundSettings wg3d::config::sound_settings() {
+    return { (int)get_number(sound, "master_volume", 0, 100), get_bool(sound, "mute_when_unfocused") };
 }
 
 bool wg3d::config::pak_inserted(int port) {

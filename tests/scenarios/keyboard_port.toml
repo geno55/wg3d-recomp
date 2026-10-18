@@ -1,0 +1,8 @@
+description = "controls.json keyboard_port = 2: port 1 has no controller and the keyboard's port 2 runs the menus (the player screen shows NO CTLR DETECTED in column 1)"
+tier = "quick"
+seconds = 20
+# Scripted input goes to the port named in each event; the keyboard itself isn't read in scenarios.
+input = [[14.0, "2>START"], [16.0, "2>A"]]
+captures = [[15.8, "menu"], [19.0, "players"]]
+controls = { keyboard_port = 2 }
+ares = false

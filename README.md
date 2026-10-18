@@ -39,7 +39,7 @@ skipped). Run `tools\cmake_build.bat` from PowerShell or cmd, not Git Bash.
 build\cmake\wg3d.exe                          # first run asks for the ROM and stores it under %APPDATA%\WG3DRecomp
 build\cmake\wg3d.exe path\to\your\rom.v64     # or give it on the command line (also how --frames test runs get it)
 ```
-Keyboard (port 1): arrows/WASD stick, X = A, C = B, Z/LShift = Z, Enter = Start, Q/E = L/R, IJKL = C buttons,
+Default keyboard (port 1): arrows/WASD stick, X = A, C = B, Z/LShift = Z, Enter = Start, Q/E = L/R, IJKL = C buttons,
 TFGH = D-pad. Alt+Enter or F11 toggles fullscreen. Gamepads (Xbox layout) take ports 1–4 in connection order.
 Saves: `%APPDATA%\WG3DRecomp\saves\controllerpak_port<N>\`.
 
@@ -48,7 +48,11 @@ runs are kept as `wg3d.1.log` and `wg3d.2.log`); crash reports are saved there a
 `--console` also shows the output in a console, and configuring with `-DWG3D_CONSOLE=ON` builds a console program.
 
 Settings live next to the saves and are created with defaults on first run; edit them while the game is closed.
-`general.json` has `pak_port_1`–`pak_port_4` (which ports have a Controller Pak). `graphics.json` has `resolution`
+`general.json` has `pak_port_1`–`pak_port_4` (which ports have a Controller Pak; all four by default).
+`controls.json` has `keyboard_port` (1–4, 0 = off), `deadzone` (percent), `pads` (per port, part of a controller's
+name to put on that port) and the `keyboard` and `gamepad` bindings: up to two SDL key names or controller inputs
+(`a`, `leftshoulder`, `dpup`, `leftx-`, `righttrigger`, ...) per N64 button and stick direction.
+`sound.json` has `master_volume` (0–100) and `mute_when_unfocused`. `graphics.json` has `resolution`
 (`Original`/`Original2x`/`Auto`), `downsampling` (1–4), `window_mode` (`Windowed`/`Fullscreen`), `aspect_ratio`
 (`Original`/`Expand`), `hud_ratio`, `antialiasing` (`None`/`MSAA2X`/`MSAA4X`/`MSAA8X`), `refresh_rate`
 (`Original`/`Display`/`Manual`), `refresh_rate_manual`, `high_precision_framebuffer` and `graphics_api`

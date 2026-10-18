@@ -19,12 +19,20 @@ CONTROLS
   Keyboard (port 1): arrows/WASD = stick, X = A, C = B, Z/Left Shift = Z, Enter = Start,
   Q/E = L/R, I/J/K/L = C buttons, T/F/G/H = D-pad.
   Gamepads (Xbox layout) take ports 1-4 in the order they are connected.
+  All of this can be changed in controls.json (below).
   Alt+Enter or F11: toggle fullscreen (remembered).
 
 SETTINGS AND SAVES  (%APPDATA%\WG3DRecomp)
   graphics.json  resolution (Original/Original2x/Auto), antialiasing (None/MSAA2X/MSAA4X/MSAA8X),
                  window_mode (Windowed/Fullscreen), graphics_api (Auto/D3D12/Vulkan), and more
-  general.json   pak_port_1..4: which ports have a Controller Pak
+  general.json   pak_port_1..4: which ports have a Controller Pak (all four by default)
+  controls.json  keyboard_port (1-4, 0 = off), deadzone (percent), pads (per port, part of a controller's
+                 name to put on that port), and the keyboard and gamepad bindings: up to two keys or
+                 controller inputs per N64 button and stick direction, e.g. "A": ["X", "Space"] or
+                 "Z": ["lefttrigger"] (controller inputs: a b x y start leftshoulder rightshoulder dpup
+                 dpdown dpleft dpright leftstick rightstick, lefttrigger righttrigger, leftx- leftx+
+                 lefty- lefty+ rightx- rightx+ righty- righty+)
+  sound.json     master_volume (0-100), mute_when_unfocused (true/false)
   window.json    window size and position (remembered automatically)
   saves\controllerpak_port<N>\   Controller Pak saves
   logs\wg3d.log  log of the last run (the two before it are kept as wg3d.1.log and wg3d.2.log);

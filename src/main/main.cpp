@@ -123,6 +123,17 @@ std::atomic<uint64_t> wg3d::stats::audio_out_bytes{ 0 };
 
 static void print_stats();
 
+// sound.json: the master volume, or silence while the window is unfocused if mute_when_unfocused is set.
+// Read by queue_samples on the audio path.
+static std::atomic<float> audio_gain{ 1.0f };
+static bool window_focused = true;
+
+static void update_audio_gain() {
+    const wg3d::config::SoundSettings s = wg3d::config::sound_settings();
+    const bool muted = s.mute_when_unfocused && !window_focused;
+    audio_gain = muted ? 0.0f : s.master_volume / 100.0f;
+}
+
 static void update_gfx(void*) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -130,6 +141,10 @@ static void update_gfx(void*) {
             ultramodern::quit();
         } else if (event.type == SDL_WINDOWEVENT) {
             wg3d::config::track_window(window);
+            if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED || event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+                window_focused = event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED;
+                update_audio_gain();
+            }
         } else if (event.type == SDL_KEYDOWN && !event.key.repeat) {
             // Alt+Enter / F11: windowed <-> borderless fullscreen. input.cpp ignores Enter
             // while Alt is held, so this doesn't also press Start.
@@ -157,7 +172,7 @@ static void update_gfx(void*) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Audio callbacks (Quest64-Recomp's SDL queue implementation, without the volume setting).
+// Audio callbacks (Quest64-Recomp's SDL queue implementation; the volume is audio_gain, above).
 // A "frame" is one sample per channel.
 // ---------------------------------------------------------------------------------------------
 static SDL_AudioCVT audio_convert;
@@ -231,10 +246,11 @@ static void queue_samples(int16_t* audio_data, size_t sample_count) {
     for (size_t i = 0; i < duplicated_input_frames * input_channels; i++) {
         swap_buffer[i] = duplicated_sample_buffer[i];
     }
-    // Convert to float and swap channels (the RDRAM word swap swaps the two 16-bit samples).
+    // Convert to float, apply the volume, and swap channels (the RDRAM word swap swaps the two 16-bit samples).
+    const float scale = audio_gain.load() * (1.0f / 32768.0f);
     for (size_t i = 0; i < sample_count; i += input_channels) {
-        swap_buffer[i + 0 + duplicated_input_frames * input_channels] = audio_data[i + 1] * (1.0f / 32768.0f);
-        swap_buffer[i + 1 + duplicated_input_frames * input_channels] = audio_data[i + 0] * (1.0f / 32768.0f);
+        swap_buffer[i + 0 + duplicated_input_frames * input_channels] = audio_data[i + 1] * scale;
+        swap_buffer[i + 1 + duplicated_input_frames * input_channels] = audio_data[i + 0] * scale;
     }
     if (sample_count <= duplicated_input_frames * input_channels) {
         return;
@@ -550,8 +566,9 @@ int main(int argc, char** argv) {
         exit_error("Invalid version string: " + version_string);
     }
     recomp::register_config_path(config_path);
-    // Settings (general/graphics/window.json); before start so the renderer is created with them.
+    // Settings (general/graphics/sound/window.json); before start so the renderer is created with them.
     wg3d::config::load();
+    update_audio_gain();
 
     recomp::GameEntry game{};
     game.rom_hash = 0xB615F7ACDFB899B4ULL;  // XXH3-64 of the big-endian US V1.0 ROM
