@@ -3,7 +3,8 @@
 Steps:
   1. Symbol chain: rom_map, find_overlays, gen_libsyms, splat, export_splat, run_ghidra, gen_syms,
      check_indirect, verify_syms (the symbols gate, including its trial recompile).
-  2. Recompile checks: hw_audit and check_aspmain.
+  2. Recompile checks: hw_audit and check_aspmain (with --skip-symbols, hw_audit is skipped if the
+     symbol chain's build/splat_jtbls.csv is missing).
   3. Clean regeneration: delete the generated recompile outputs, run gen_config (config, N64Recomp,
      declarations header, clang-cl syntax check), then a clean CMake build of WG3DRecompiled
      with 0 errors and 0 warnings.
@@ -41,6 +42,10 @@ RECOMPILE_CHECKS = [
     ("hardware audit", [PY, "tools/hw_audit.py"], "."),
     ("aspMain check", [PY, "tools/check_aspmain.py"], "."),
 ]
+# hw_audit needs the jump-table targets in build/splat_jtbls.csv, a symbol-chain output. With
+# --skip-symbols on a machine that has never run the chain, the audit is skipped (docs/hw_audit.md
+# stays from the last full run); without --skip-symbols the chain writes the file first.
+SYMBOL_OUTPUTS = {"hardware audit": "build/splat_jtbls.csv"}
 # Generated recompile outputs removed before regenerating (paths relative to ROOT).
 # The clean build uses its own directory so the gate doesn't delete the dev build (build/cmake, wg3d.exe).
 VERIFY_BUILD_DIR = "build/cmake-verify"
@@ -81,6 +86,10 @@ def main() -> int:
 
     steps = ([] if args.skip_symbols else SYMBOL_STEPS) + RECOMPILE_CHECKS
     for name, cmd, cwd in steps:
+        needs = SYMBOL_OUTPUTS.get(name)
+        if args.skip_symbols and needs and not (ROOT / needs).exists():
+            print(f"[skip] {name}: {needs} missing (symbol chain not run on this machine)")
+            continue
         if not run(name, cmd, cwd):
             failures.append(name)
     if failures:
