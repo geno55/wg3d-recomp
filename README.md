@@ -11,7 +11,7 @@ git-ignored and produced locally by the build.
 
 ## Status
 The game boots, renders, plays audio, takes keyboard and gamepad input (4 ports) and saves to the Controller
-Pak. A correctness pass is in progress.
+Pak. A correctness pass is in progress; see [docs/ROADMAP.md](docs/ROADMAP.md) for the plan to v1.0.0.
 
 ## Requirements (Windows)
 - Visual Studio 2022 Build Tools with clang-cl, Windows SDK 10.0.26100 (RT64's D3D12 backend needs it)
