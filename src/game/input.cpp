@@ -4,7 +4,8 @@
 // the ultramodern callbacks, called from game threads, read a mutex-protected snapshot.
 //
 // controls.json in the app folder (written with the defaults on first run, rewritten on load so it
-// lists every option; edit it while the game is closed):
+// lists every option; the settings menu edits it through set_controls_settings, or edit it while the game
+// is closed):
 //   keyboard_port  1-4: the port the keyboard drives (merged with a pad on that port); 0: keyboard off
 //   deadzone       percent of the gamepad stick's travel that reads as centred (radial, rescaled)
 //   pads           per port, part of a controller's name (case-insensitive) to put on that port; "" =
@@ -124,7 +125,11 @@ namespace {
     std::array<PortState, NumPorts> last_logged{};
     bool log_input = false;
     int fake_pads = 0;
-    std::array<bool, NumPorts> pak_inserted{};  // general.json, then WG3D_PAKS
+    std::array<bool, NumPorts> pak_inserted{};  // general.json, or WG3D_PAKS; guarded by snapshot_mutex
+    const char* paks_override = nullptr;        // WG3D_PAKS
+    nlohmann::json controls_json;               // controls.json as last applied (canonical)
+    bool blocked = false;                       // settings menu open: the game sees no presses
+    bool suppressed = false;                    // after the menu: no presses until everything is released
 
     // ---------------------------------------------------------------------------------------------
     // controls.json
@@ -156,18 +161,9 @@ namespace {
         return trigger ? n : n + (p.sign < 0 ? "-" : "+");
     }
 
-    // Reads controls.json (missing or invalid entries take the default) and writes it back complete,
-    // in the canonical spelling, so the file always shows what is in effect.
-    void load_controls() {
-        std::filesystem::path path = recomp::get_config_path() / "controls.json";
-        nlohmann::json in = nlohmann::json::object();
-        if (std::ifstream f{ path }; f.good()) {
-            in = nlohmann::json::parse(f, nullptr, false);
-            if (!in.is_object()) {
-                std::fprintf(stderr, "[wg3d] controls: %s is not valid JSON, using the defaults\n", path.string().c_str());
-                in = nlohmann::json::object();
-            }
-        }
+    // Applies controls (missing or invalid entries take the default) and returns them complete, in the
+    // canonical spelling.
+    nlohmann::json apply_controls(const nlohmann::json& in) {
         auto number = [&](const char* key, int def, int lo, int hi) {
             const auto it = in.find(key);
             return it != in.end() && it->is_number() ? std::clamp((int)it->get<double>(), lo, hi) : def;
@@ -244,7 +240,13 @@ namespace {
             }
             out["gamepad"][Targets[t].name] = pad;
         }
+        std::fprintf(stderr, "[wg3d] controls: keyboard on %s, deadzone %d%%\n",
+                     keyboard_port ? ("port " + std::to_string(keyboard_port)).c_str() : "no port", deadzone);
+        return out;
+    }
 
+    void write_controls(const nlohmann::json& out) {
+        std::filesystem::path path = recomp::get_config_path() / "controls.json";
         // Written by hand rather than with dump(): options in a fixed order (nlohmann sorts object keys) and
         // one N64 input per line, in controller order, so the file is easy to edit.
         std::string text = "{\n";
@@ -265,8 +267,21 @@ namespace {
         } else {
             std::fprintf(stderr, "[wg3d] controls: could not write %s\n", path.string().c_str());
         }
-        std::fprintf(stderr, "[wg3d] controls: keyboard on %s, deadzone %d%%\n",
-                     keyboard_port ? ("port " + std::to_string(keyboard_port)).c_str() : "no port", deadzone);
+    }
+
+    // Reads controls.json and writes it back complete, so the file always shows what is in effect.
+    void load_controls() {
+        std::filesystem::path path = recomp::get_config_path() / "controls.json";
+        nlohmann::json in = nlohmann::json::object();
+        if (std::ifstream f{ path }; f.good()) {
+            in = nlohmann::json::parse(f, nullptr, false);
+            if (!in.is_object()) {
+                std::fprintf(stderr, "[wg3d] controls: %s is not valid JSON, using the defaults\n", path.string().c_str());
+                in = nlohmann::json::object();
+            }
+        }
+        controls_json = apply_controls(in);
+        write_controls(controls_json);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -392,18 +407,9 @@ namespace {
         }
     }
 
-    void open_pad(int device_index) {
-        SDL_GameController* pad = SDL_GameControllerOpen(device_index);
-        if (!pad) return;
-        SDL_JoystickID id = SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad));
-        for (SDL_GameController* p : pads) {
-            if (p && SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(p)) == id) {
-                SDL_GameControllerClose(pad);  // already open (duplicate ADDED event)
-                return;
-            }
-        }
-        // A port reserved for this pad by name (controls.json "pads"), else the lowest free unreserved port,
-        // else any free port.
+    // Puts an open pad on a port: one reserved for it by name (controls.json "pads"), else the lowest free
+    // unreserved port, else any free port. Closes it if all four are taken.
+    void assign_pad(SDL_GameController* pad) {
         std::string name = SDL_GameControllerName(pad) ? SDL_GameControllerName(pad) : "";
         std::string lower = name;
         std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return (char)std::tolower(c); });
@@ -425,6 +431,19 @@ namespace {
         }
         std::fprintf(stderr, "[wg3d] input: \"%s\" ignored (all 4 ports in use)\n", SDL_GameControllerName(pad));
         SDL_GameControllerClose(pad);
+    }
+
+    void open_pad(int device_index) {
+        SDL_GameController* pad = SDL_GameControllerOpen(device_index);
+        if (!pad) return;
+        SDL_JoystickID id = SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad));
+        for (SDL_GameController* p : pads) {
+            if (p && SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(p)) == id) {
+                SDL_GameControllerClose(pad);  // already open (duplicate ADDED event)
+                return;
+            }
+        }
+        assign_pad(pad);
     }
 
     void close_pad(SDL_JoystickID id) {
@@ -449,18 +468,8 @@ void wg3d::input::init() {
     if (const char* s = std::getenv("WG3D_INPUT_SCRIPT")) {
         parse_script(s);
     }
-    for (int port = 0; port < NumPorts; port++) {
-        pak_inserted[port] = wg3d::config::pak_inserted(port);
-    }
-    if (const char* p = std::getenv("WG3D_PAKS")) {
-        // Port numbers with an inserted pak, e.g. "1", "1,2" or "none".
-        pak_inserted = {};
-        for (const char* c = p; *c; c++) {
-            if (*c >= '1' && *c <= '0' + NumPorts) pak_inserted[*c - '1'] = true;
-        }
-    }
-    std::fprintf(stderr, "[wg3d] input: controller paks in ports:%s%s%s%s\n", pak_inserted[0] ? " 1" : "",
-                 pak_inserted[1] ? " 2" : "", pak_inserted[2] ? " 3" : "", pak_inserted[3] ? " 4" : "");
+    paks_override = std::getenv("WG3D_PAKS");
+    refresh_paks();
     // Pads present at start-up also arrive as SDL_CONTROLLERDEVICEADDED events; open_pad ignores
     // duplicates, so opening them here just makes them available before the game's first query.
     for (int i = 0; i < SDL_NumJoysticks(); i++) {
@@ -486,6 +495,21 @@ void wg3d::input::update() {
     if (controls.keyboard_port >= 0) {
         next[controls.keyboard_port].connected = true;
         read_keyboard(next[controls.keyboard_port]);
+    }
+    // While the menu is open, and after it closes until every button and stick is released (so the
+    // button that closed it doesn't also reach the game), the ports stay connected but idle.
+    if (suppressed && !blocked) {
+        bool held = false;
+        for (const PortState& s : next) {
+            held |= s.buttons != 0 || std::fabs(s.x) > 0.1f || std::fabs(s.y) > 0.1f;
+        }
+        suppressed = held;
+    }
+    if (blocked || suppressed) {
+        for (PortState& s : next) {
+            s.buttons = 0;
+            s.x = s.y = 0.0f;
+        }
     }
 
     std::lock_guard lock{ snapshot_mutex };
@@ -534,9 +558,11 @@ void wg3d::input::set_rumble(int, bool) {}
 
 ultramodern::input::connected_device_info_t wg3d::input::get_connected_device_info(int port) {
     bool connected = false;
+    bool pak = false;
     if (port >= 0 && port < NumPorts) {
         std::lock_guard lock{ snapshot_mutex };
         connected = snapshot[port].connected;
+        pak = pak_inserted[port];
     }
     if (!connected) {
         return { ultramodern::input::Device::None, ultramodern::input::Pak::None };
@@ -544,5 +570,85 @@ ultramodern::input::connected_device_info_t wg3d::input::get_connected_device_in
     // Controller Pak: the runtime's osPfs* store each port's pak under
     // %APPDATA%/WG3DRecomp/saves/controllerpak_port<N>/.
     return { ultramodern::input::Device::Controller,
-             pak_inserted[port] ? ultramodern::input::Pak::ControllerPak : ultramodern::input::Pak::None };
+             pak ? ultramodern::input::Pak::ControllerPak : ultramodern::input::Pak::None };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Settings menu (main thread)
+// ---------------------------------------------------------------------------------------------
+int wg3d::input::num_targets() {
+    return NumTargets;
+}
+
+const char* wg3d::input::target_name(int target) {
+    return Targets[target].name;
+}
+
+int wg3d::input::max_bindings() {
+    return MaxBindings;
+}
+
+nlohmann::json wg3d::input::controls_settings() {
+    return controls_json;
+}
+
+nlohmann::json wg3d::input::default_controls_settings() {
+    nlohmann::json j = controls_json;
+    j["keyboard_port"] = 1;
+    j["deadzone"] = 15;
+    j["pads"] = nlohmann::json::array({ "", "", "", "" });
+    for (int t = 0; t < NumTargets; t++) {
+        j["keyboard"][Targets[t].name] = nlohmann::json::array();
+        j["gamepad"][Targets[t].name] = nlohmann::json::array();
+        for (int i = 0; i < MaxBindings; i++) {
+            if (Defaults[t].keys[i]) j["keyboard"][Targets[t].name].push_back(Defaults[t].keys[i]);
+            if (Defaults[t].pad[i]) j["gamepad"][Targets[t].name].push_back(Defaults[t].pad[i]);
+        }
+    }
+    return j;
+}
+
+void wg3d::input::set_controls_settings(const nlohmann::json& settings) {
+    controls_json = apply_controls(settings);
+    write_controls(controls_json);
+    // Port reservations may have changed: put the connected pads back on ports in their current order.
+    std::array<SDL_GameController*, NumPorts> open = pads;
+    pads = {};
+    for (SDL_GameController* pad : open) {
+        if (pad) assign_pad(pad);
+    }
+}
+
+std::array<std::string, wg3d::input::NumPorts> wg3d::input::port_pad_names() {
+    std::array<std::string, NumPorts> names{};
+    for (int port = 0; port < NumPorts; port++) {
+        if (pads[port] && SDL_GameControllerName(pads[port])) names[port] = SDL_GameControllerName(pads[port]);
+    }
+    return names;
+}
+
+void wg3d::input::refresh_paks() {
+    std::array<bool, NumPorts> next{};
+    if (paks_override) {
+        // Port numbers with an inserted pak, e.g. "1", "1,2" or "none".
+        for (const char* c = paks_override; *c; c++) {
+            if (*c >= '1' && *c <= '0' + NumPorts) next[*c - '1'] = true;
+        }
+    } else {
+        for (int port = 0; port < NumPorts; port++) next[port] = wg3d::config::pak_inserted(port);
+    }
+    static bool first = true;
+    {
+        std::lock_guard lock{ snapshot_mutex };
+        if (next == pak_inserted && !first) return;
+        pak_inserted = next;
+        first = false;
+    }
+    std::fprintf(stderr, "[wg3d] input: controller paks in ports:%s%s%s%s\n", next[0] ? " 1" : "",
+                 next[1] ? " 2" : "", next[2] ? " 3" : "", next[3] ? " 4" : "");
+}
+
+void wg3d::input::set_blocked(bool block) {
+    if (blocked && !block) suppressed = true;
+    blocked = block;
 }

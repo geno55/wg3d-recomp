@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Adapted from Quest64-Recomp (https://github.com/Rainchus/Quest64-Recomp, GPL-3.0).
 // RT64-backed ultramodern renderer. Adapted from Quest64-Recomp (src/main/rt64_render_context.cpp):
-// same RT64 core/VI register wiring and config mapping, minus the RmlUi render hooks and the
-// texture-pack/mod plumbing, which this project doesn't use (yet).
+// same RT64 core/VI register wiring and config mapping, minus the texture-pack/mod plumbing, which this
+// project doesn't use (yet). The launcher/menu draw through RT64's render hooks (src/main/ui_render.cpp).
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
@@ -19,6 +19,7 @@
 #include "wg3d_frame_log.h"
 #include "wg3d_render.h"
 #include "wg3d_stats.h"
+#include "wg3d_ui.h"
 
 // src/game/test_hooks.cpp: WG3D_WATCH / WG3D_POKE, run once per display list.
 void wg3d_watch(uint8_t* rdram);
@@ -222,9 +223,8 @@ void wg3d::renderer::RT64Context::send_dl(const OSTask* task) {
     app->processDisplayLists(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF, 0, true);
 }
 
-// ultramodern queues this on each VI *before the game starts* (with a dummy VI mode), so a launcher
-// UI has frames to present. There is no launcher here and the game starts immediately, and nothing
-// waits on this action, so it is a no-op.
+// ultramodern queues this on each VI *before the game starts* (with a dummy VI mode). update_screen
+// presents the launcher on its own, so there is nothing to render here.
 void wg3d::renderer::RT64Context::send_dummy_workload(uint32_t) {}
 
 void wg3d::renderer::RT64Context::update_screen() {
@@ -236,7 +236,14 @@ void wg3d::renderer::RT64Context::update_screen() {
         last_origin = origin;
         wg3d::stats::origin_changes++;
     }
-    if (wg3d::capture::render_needed()) {
+    if (!wg3d::capture::render_needed()) {
+        return;
+    }
+    if (wg3d::ui::visible()) {
+        // RT64 presents only when the screen changed; the launcher (no game yet) and the menu (game
+        // paused) need a present every VI to draw over.
+        app->state->updateScreen(app->core.decodeVI(), true);
+    } else {
         app->updateScreen();
     }
 }

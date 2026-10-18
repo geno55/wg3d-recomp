@@ -116,6 +116,22 @@ The octagonal stick range needed no work: ultramodern already maps the stick ont
 
 ## v0.6.0 — Launcher and in-game menu
 
+Status: done.
+- A launcher (ROM status, Start game, Choose ROM..., Settings, Quit) replaces the first-run message boxes.
+- A settings menu over the paused game (Esc or a controller's Back button) with General / Controls /
+  Graphics / Sound tabs. General, Graphics and Sound rows come from the librecomp config schemas; Controls
+  edits `controls.json` (bindings by capture, keyboard port, deadzone, controller per port). Changes apply
+  at once and are written to the files.
+- Pause when unfocused (`general.json`), and button hints drawn for the device used last (keyboard,
+  Xbox, PlayStation or Nintendo layout).
+- A runtime patch (0005) pauses the game: the VI thread keeps presenting but sends the game no VI/AI
+  messages.
+
+Built with Dear ImGui rather than RmlUi: RT64 already compiles ImGui and its D3D12/Vulkan backends (for its
+inspector), so the menu needs no new dependency, shaders or assets. It draws through RT64's render hooks
+(`src/main/ui_render.cpp`). The settings write with `set_option_value` + `save_config` after the files are
+reloaded once at start-up, which fixes librecomp's first-run no-op.
+
 - **RmlUi**, ported from Quest64-Recomp / Zelda64Recomp. **M–L**
   - A launcher: ROM status, Start, Settings.
   - A settings menu over the paused game, opened with a hotkey, with General / Controls / Graphics /

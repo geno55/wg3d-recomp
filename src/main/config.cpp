@@ -1,13 +1,14 @@
 // Persistent settings. Four librecomp configs, each a JSON file in the app folder
 // (%APPDATA%\WG3DRecomp, or --data-dir):
-//   general.json   Controller Pak per port
+//   general.json   Controller Pak per port, pause when unfocused
 //   graphics.json  RT64 options (the ultramodern GraphicsConfig fields set_application_user_config maps)
 //   sound.json     master volume, mute when the window loses focus
 //   window.json    last windowed size/position and maximised state (state, not settings: rewritten on exit)
 // controls.json is read and written by src/game/input.cpp (its bindings are lists, not librecomp options).
 //
 // Defaults reproduce the pre-config behaviour. Missing or invalid values fall back to the default, and
-// each file is rewritten after loading so it always lists every option.
+// each file is rewritten after loading so it always lists every option. The settings menu (src/main/ui.cpp)
+// changes them through set_value, which applies the change and rewrites the file.
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
@@ -37,6 +38,9 @@ namespace {
     Config sound{ "Sound", "sound" };
     Config window{ "Window", "window" };
 
+    // Guards the option values of general/graphics/sound: the menu writes them on the main thread while
+    // the game, audio and graphics threads read them.
+    std::recursive_mutex values_mutex;
     std::mutex window_mutex;
     wg3d::config::WindowState window_now{ false, 0, 0, DefaultWidth, DefaultHeight, false };
     std::atomic<bool> fullscreen{ false };
@@ -47,15 +51,27 @@ namespace {
 
     template <typename T>
     T get_enum(const Config& c, const std::string& id) {
+        std::lock_guard lock{ values_mutex };
         return static_cast<T>(std::get<uint32_t>(c.get_option_value(id)));
     }
 
     double get_number(const Config& c, const std::string& id, double min, double max) {
+        std::lock_guard lock{ values_mutex };
         return std::clamp(std::get<double>(c.get_option_value(id)), min, max);
     }
 
     bool get_bool(const Config& c, const std::string& id) {
+        std::lock_guard lock{ values_mutex };
         return std::get<bool>(c.get_option_value(id));
+    }
+
+    Config& config_for(wg3d::config::Section section) {
+        switch (section) {
+            case wg3d::config::Section::Graphics: return graphics;
+            case wg3d::config::Section::Sound: return sound;
+            case wg3d::config::Section::General:
+            default: return general;
+        }
     }
 
     void define_general() {
@@ -63,12 +79,15 @@ namespace {
             general.add_bool_option(pak_option(port), "Controller Pak in port " + std::to_string(port + 1),
                                     "Saves go to saves/controllerpak_port<N>/ in the app folder.", true);
         }
+        general.add_bool_option("pause_when_unfocused", "Pause when unfocused",
+                                "Pauses the game while its window isn't the active one.", false);
     }
 
     void define_graphics() {
         graphics.add_enum_option("resolution", "Resolution",
             "Original: 240p. Original2x: 480p. Auto: largest integer multiple of 240p that fits the window.",
-            { { Resolution::Original, "Original" }, { Resolution::Original2x, "Original2x" }, { Resolution::Auto, "Auto" } },
+            { { Resolution::Original, "Original", "Original (240p)" }, { Resolution::Original2x, "Original2x", "Original 2x (480p)" },
+              { Resolution::Auto, "Auto", "Auto (fit window)" } },
             Resolution::Original);
         graphics.add_number_option("downsampling", "Downsampling",
             "Renders at N times the resolution and scales down (supersampling). Original/Original2x only.",
@@ -81,11 +100,12 @@ namespace {
             { { AspectRatio::Original, "Original" }, { AspectRatio::Expand, "Expand" } },
             AspectRatio::Original);
         graphics.add_enum_option("hud_ratio", "HUD aspect ratio", "",
-            { { HUDRatioMode::Original, "Original" }, { HUDRatioMode::Clamp16x9, "Clamp16x9" }, { HUDRatioMode::Full, "Full" } },
+            { { HUDRatioMode::Original, "Original" }, { HUDRatioMode::Clamp16x9, "Clamp16x9", "Clamp to 16:9" },
+              { HUDRatioMode::Full, "Full" } },
             HUDRatioMode::Original);
         graphics.add_enum_option("antialiasing", "Antialiasing", "",
-            { { Antialiasing::None, "None" }, { Antialiasing::MSAA2X, "MSAA2X" }, { Antialiasing::MSAA4X, "MSAA4X" },
-              { Antialiasing::MSAA8X, "MSAA8X" } },
+            { { Antialiasing::None, "None" }, { Antialiasing::MSAA2X, "MSAA2X", "MSAA 2x" }, { Antialiasing::MSAA4X, "MSAA4X", "MSAA 4x" },
+              { Antialiasing::MSAA8X, "MSAA8X", "MSAA 8x" } },
             Antialiasing::None);
         graphics.add_enum_option("refresh_rate", "Refresh rate",
             "Original: the game's rate. Display: the monitor's. Manual: refresh_rate_manual.",
@@ -134,7 +154,9 @@ namespace {
     }
 
     // Loads one file (librecomp falls back to its .bak copy if the file is corrupt) and rewrites it with
-    // every option present and numbers clamped to their range, so the file shows what is in effect.
+    // every option present and numbers clamped to their range, so the file shows what is in effect. Then
+    // reloads it: on a first run (no file yet) librecomp stores no values, and set_option_value only
+    // changes values it has stored.
     nlohmann::json load_one(Config& c) {
         if (!c.load_config()) {
             std::fprintf(stderr, "[wg3d] config: %s.json could not be loaded, using defaults\n", c.id.c_str());
@@ -147,6 +169,7 @@ namespace {
             }
         }
         c.save_config_json(j);
+        c.load_config();
         return j;
     }
 
@@ -206,6 +229,38 @@ bool wg3d::config::pak_inserted(int port) {
     return port >= 0 && port < wg3d::input::NumPorts && get_bool(general, pak_option(port));
 }
 
+bool wg3d::config::pause_when_unfocused() {
+    return get_bool(general, "pause_when_unfocused");
+}
+
+const recomp::config::Config& wg3d::config::section_config(Section section) {
+    return config_for(section);
+}
+
+recomp::config::ConfigValueVariant wg3d::config::get_value(Section section, const std::string& id) {
+    std::lock_guard lock{ values_mutex };
+    return config_for(section).get_option_value(id);
+}
+
+void wg3d::config::set_value(Section section, const std::string& id, const recomp::config::ConfigValueVariant& value) {
+    Config& c = config_for(section);
+    std::string saved;
+    {
+        std::lock_guard lock{ values_mutex };
+        c.set_option_value(id, value);
+        if (!c.save_config()) {
+            std::fprintf(stderr, "[wg3d] config: failed to write %s.json\n", c.id.c_str());
+        }
+        saved = c.get_json_config()[id].dump();
+    }
+    if (section == Section::Graphics) {
+        apply_graphics();
+    } else if (section == Section::General) {
+        wg3d::input::refresh_paks();
+    }
+    std::fprintf(stderr, "[wg3d] config: %s.%s = %s\n", c.id.c_str(), id.c_str(), saved.c_str());
+}
+
 wg3d::config::WindowState wg3d::config::window_state() {
     std::lock_guard lock{ window_mutex };
     WindowState s = window_now;
@@ -255,15 +310,8 @@ void wg3d::config::save_window_state() {
 }
 
 void wg3d::config::toggle_fullscreen() {
-    GraphicsConfig g = get_graphics_config();
-    g.wm_option = g.wm_option == WindowMode::Fullscreen ? WindowMode::Windowed : WindowMode::Fullscreen;
-    // Set before the renderer switches, so track_window ignores the fullscreen-sized window.
-    fullscreen = g.wm_option == WindowMode::Fullscreen;
-    set_graphics_config(g);
-    nlohmann::json j = graphics.get_json_config();
-    j["window_mode"] = fullscreen ? "Fullscreen" : "Windowed";
-    if (!graphics.save_config_json(j)) {
-        std::fprintf(stderr, "[wg3d] config: failed to write graphics.json\n");
-    }
-    std::fprintf(stderr, "[wg3d] window mode: %s\n", fullscreen ? "Fullscreen" : "Windowed");
+    const bool to_fullscreen = get_enum<WindowMode>(graphics, "window_mode") != WindowMode::Fullscreen;
+    // apply_graphics sets `fullscreen` before the renderer switches, so track_window ignores the
+    // fullscreen-sized window.
+    set_value(Section::Graphics, "window_mode", (uint32_t)(to_fullscreen ? WindowMode::Fullscreen : WindowMode::Windowed));
 }

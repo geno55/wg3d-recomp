@@ -36,9 +36,13 @@ skipped). Run `tools\cmake_build.bat` from PowerShell or cmd, not Git Bash.
 
 ## Run
 ```
-build\cmake\wg3d.exe                          # first run asks for the ROM and stores it under %APPDATA%\WG3DRecomp
+build\cmake\wg3d.exe                          # the launcher: Choose ROM... stores it under %APPDATA%\WG3DRecomp
 build\cmake\wg3d.exe path\to\your\rom.v64     # or give it on the command line (also how --frames test runs get it)
 ```
+The launcher has Start game, Choose ROM..., Settings and Quit. In game, Esc or a controller's Back (View) button
+opens the settings menu over the paused game: General, Controls (bindings, keyboard port, deadzone, which
+controller goes on which port), Graphics and Sound. Changes apply at once and are saved. The menu works with
+a keyboard, a controller or the mouse. `--frames` test runs skip the launcher.
 Default keyboard (port 1): arrows/WASD stick, X = A, C = B, Z/LShift = Z, Enter = Start, Q/E = L/R, IJKL = C buttons,
 TFGH = D-pad. Alt+Enter or F11 toggles fullscreen. Gamepads (Xbox layout) take ports 1–4 in connection order.
 Saves: `%APPDATA%\WG3DRecomp\saves\controllerpak_port<N>\`.
@@ -47,8 +51,10 @@ Saves: `%APPDATA%\WG3DRecomp\saves\controllerpak_port<N>\`.
 runs are kept as `wg3d.1.log` and `wg3d.2.log`); crash reports are saved there as `crash-<date>-<time>.txt`.
 `--console` also shows the output in a console, and configuring with `-DWG3D_CONSOLE=ON` builds a console program.
 
-Settings live next to the saves and are created with defaults on first run; edit them while the game is closed.
-`general.json` has `pak_port_1`–`pak_port_4` (which ports have a Controller Pak; all four by default).
+Settings live next to the saves and are created with defaults on first run. The settings menu edits them; to edit
+the files by hand, close the game first.
+`general.json` has `pak_port_1`–`pak_port_4` (which ports have a Controller Pak; all four by default) and
+`pause_when_unfocused`.
 `controls.json` has `keyboard_port` (1–4, 0 = off), `deadzone` (percent), `pads` (per port, part of a controller's
 name to put on that port) and the `keyboard` and `gamepad` bindings: up to two SDL key names or controller inputs
 (`a`, `leftshoulder`, `dpup`, `leftx-`, `righttrigger`, ...) per N64 button and stick direction.
@@ -76,5 +82,6 @@ the ROM is in this repository.
 
 ## Runtime patches
 `lib/N64ModernRuntime` is pinned to sonicdcer's `controller_pak_super_rebase` branch (Controller Pak support);
-`patches/runtime/` holds this project's three changes on top (VI null-mode fix, per-port paks + pak call log,
-and a lockstep speed multiplier for fast test runs), applied when CMake configures.
+`patches/runtime/` holds this project's changes on top (VI null-mode fix, per-port paks + pak call log, a lockstep
+speed multiplier for fast test runs, the full-pak check, and pausing the game for the menu), applied when CMake
+configures.

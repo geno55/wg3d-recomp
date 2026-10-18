@@ -11,21 +11,30 @@ REQUIREMENTS
   Windows 10 or 11 (64-bit), a GPU with Direct3D 12 or Vulkan.
 
 FIRST RUN
-  Run wg3d.exe and pick your ROM in the file dialog (or drag the ROM onto wg3d.exe, or run
+  Run wg3d.exe and choose Choose ROM... in the launcher (or drag the ROM onto wg3d.exe, or run
   wg3d.exe path\to\your\rom.z64). The ROM is checked and copied to %APPDATA%\WG3DRecomp.
-  After that, just run wg3d.exe.
+  After that, run wg3d.exe and pick Start game.
+
+SETTINGS MENU
+  Esc, or a controller's Back (View) button, opens the settings menu over the paused game. Settings
+  in the launcher opens the same menu. Tabs: General, Controls, Graphics, Sound.
+  Up/down picks a setting, left/right changes it, Enter (A) selects, Esc (B) goes back,
+  Q/E (LB/RB) switches tabs. The mouse works too. Changes apply at once and are saved.
+  Controls > Bindings: choose a slot, press Enter (A), then press the key or controller input to use;
+  Del (X) clears a slot.
 
 CONTROLS
   Keyboard (port 1): arrows/WASD = stick, X = A, C = B, Z/Left Shift = Z, Enter = Start,
   Q/E = L/R, I/J/K/L = C buttons, T/F/G/H = D-pad.
   Gamepads (Xbox layout) take ports 1-4 in the order they are connected.
-  All of this can be changed in controls.json (below).
+  All of this can be changed in the settings menu (Controls) or in controls.json (below).
   Alt+Enter or F11: toggle fullscreen (remembered).
 
 SETTINGS AND SAVES  (%APPDATA%\WG3DRecomp)
   graphics.json  resolution (Original/Original2x/Auto), antialiasing (None/MSAA2X/MSAA4X/MSAA8X),
                  window_mode (Windowed/Fullscreen), graphics_api (Auto/D3D12/Vulkan), and more
-  general.json   pak_port_1..4: which ports have a Controller Pak (all four by default)
+  general.json   pak_port_1..4: which ports have a Controller Pak (all four by default),
+                 pause_when_unfocused (true/false)
   controls.json  keyboard_port (1-4, 0 = off), deadzone (percent), pads (per port, part of a controller's
                  name to put on that port), and the keyboard and gamepad bindings: up to two keys or
                  controller inputs per N64 button and stick direction, e.g. "A": ["X", "Space"] or
@@ -37,12 +46,12 @@ SETTINGS AND SAVES  (%APPDATA%\WG3DRecomp)
   saves\controllerpak_port<N>\   Controller Pak saves
   logs\wg3d.log  log of the last run (the two before it are kept as wg3d.1.log and wg3d.2.log);
                  crash reports are saved next to it as crash-<date>-<time>.txt
-  The files are created on first run. Edit them while the game is closed.
+  The files are created on first run. The settings menu edits them; to edit them by hand, close the
+  game first.
   wg3d.exe --console also shows the log in a console window.
 
 KNOWN LIMITATIONS
   - A correctness pass is in progress; report problems on GitHub (attach the log or crash report).
-  - No in-game settings menu or control remapping yet.
   - Widescreen and high frame rate are not supported yet.
 
 LICENSE

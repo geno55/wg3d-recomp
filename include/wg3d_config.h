@@ -1,6 +1,9 @@
 #pragma once
 // Persistent settings: general.json, graphics.json, sound.json and window.json in the app folder,
 // stored through librecomp's recomp::config::Config. (controls.json: src/game/input.cpp.)
+#include <string>
+
+#include "librecomp/config.hpp"
 
 struct SDL_Window;
 
@@ -24,6 +27,16 @@ namespace wg3d::config {
 
     // Controller Pak inserted in this port (0-3), per general.json. WG3D_PAKS overrides it in input.cpp.
     bool pak_inserted(int port);
+    bool pause_when_unfocused();
+
+    // The files the settings menu edits (window.json is state, not settings).
+    enum class Section { General, Graphics, Sound };
+    // A section's options (schema); read their values with get_value.
+    const recomp::config::Config& section_config(Section section);
+    recomp::config::ConfigValueVariant get_value(Section section, const std::string& id);
+    // Sets an option, rewrites its file and applies it: graphics go to the renderer, paks to the ports;
+    // sound is read on the audio path.
+    void set_value(Section section, const std::string& id, const recomp::config::ConfigValueVariant& value);
 
     // Window placement to restore, clamped so the window lands on a connected display.
     WindowState window_state();

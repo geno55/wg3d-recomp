@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(WG3DRecomp VERSION 0.5.0 LANGUAGES C CXX)
+project(WG3DRecomp VERSION 0.6.0 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
@@ -189,6 +189,8 @@ add_executable(wg3d
     ${CMAKE_SOURCE_DIR}/src/main/capture.cpp
     ${CMAKE_SOURCE_DIR}/src/main/frame_log.cpp
     ${CMAKE_SOURCE_DIR}/src/main/log.cpp
+    ${CMAKE_SOURCE_DIR}/src/main/ui.cpp
+    ${CMAKE_SOURCE_DIR}/src/main/ui_render.cpp
     ${CMAKE_BINARY_DIR}/wg3d.rc
     ${CMAKE_SOURCE_DIR}/src/game/pi.cpp
     ${CMAKE_SOURCE_DIR}/src/game/input.cpp
@@ -199,6 +201,7 @@ target_include_directories(wg3d PRIVATE
     ${RECOMP_DIR}
     ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include
     ${CMAKE_SOURCE_DIR}/lib/rt64/src/contrib
+    ${CMAKE_SOURCE_DIR}/lib/rt64/src/contrib/imgui
     ${CMAKE_SOURCE_DIR}/lib/rt64/src/contrib/hlslpp/include
     ${CMAKE_SOURCE_DIR}/lib/rt64/src/contrib/dxc/inc
     ${CMAKE_SOURCE_DIR}/lib/rt64/src
@@ -206,9 +209,12 @@ target_include_directories(wg3d PRIVATE
     ${CMAKE_SOURCE_DIR}/lib/rt64/src/render)
 
 # NOMINMAX: <Windows.h> (pulled in by RT64 headers) otherwise breaks std::min/std::max.
-target_compile_definitions(wg3d PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS WG3D_VERSION="${PROJECT_VERSION}")
-# nfd (nativefiledialog-extended, built by RT64): first-run ROM picker.
-target_link_libraries(wg3d PRIVATE WG3DRecompiled librecomp ultramodern rt64 nfd SDL2 Winmm.lib Dbghelp.lib)
+# IMGUI_IMPL_VULKAN_NO_PROTOTYPES: as RT64 builds ImGui's Vulkan backend (volk loads the functions).
+target_compile_definitions(wg3d PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS WG3D_VERSION="${PROJECT_VERSION}"
+                           IMGUI_IMPL_VULKAN_NO_PROTOTYPES)
+# nfd (nativefiledialog-extended, built by RT64): the launcher's ROM picker. plume (RT64's graphics
+# layer) and RT64's ImGui: the launcher and settings menu (src/main/ui_render.cpp).
+target_link_libraries(wg3d PRIVATE WG3DRecompiled librecomp ultramodern rt64 plume nfd SDL2 Winmm.lib Dbghelp.lib)
 
 # Identical code folding would merge distinct recompiled functions (Zelda64Recomp does the same).
 target_link_options(wg3d PRIVATE /OPT:NOICF)

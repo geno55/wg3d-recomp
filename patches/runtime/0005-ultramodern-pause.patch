@@ -1,0 +1,46 @@
+diff --git a/ultramodern/include/ultramodern/ultramodern.hpp b/ultramodern/include/ultramodern/ultramodern.hpp
+--- a/ultramodern/include/ultramodern/ultramodern.hpp
++++ b/ultramodern/include/ultramodern/ultramodern.hpp
+@@ -110,6 +110,10 @@ bool is_game_idle();
+ // game instead of on the wall clock. Call before start.
+ void set_speed_multiplier(uint32_t multiplier);
+ uint32_t get_speed_multiplier();
++// wg3d (patch 0005): while paused, the VI thread keeps updating the screen but sends the game no VI or AI
++// messages (and skips the VI callback), so the game waits on its next retrace.
++void set_game_paused(bool paused);
++bool is_game_paused();
+ 
+ // Time
+ std::chrono::high_resolution_clock::time_point get_start();
+diff --git a/ultramodern/src/events.cpp b/ultramodern/src/events.cpp
+--- a/ultramodern/src/events.cpp
++++ b/ultramodern/src/events.cpp
+@@ -23,6 +23,16 @@ static ultramodern::events::callbacks_t events_callbacks{};
+ // for both to be 0 (and the game to be idle) before each VI.
+ static std::atomic<int> gfx_tasks_pending{ 0 };
+ static std::atomic<int> sp_tasks_pending{ 0 };
++// wg3d (patch 0005): set_game_paused.
++static std::atomic<bool> game_paused{ false };
++
++void ultramodern::set_game_paused(bool paused) {
++    game_paused.store(paused);
++}
++
++bool ultramodern::is_game_paused() {
++    return game_paused.load();
++}
+ 
+ void ultramodern::events::set_callbacks(const ultramodern::events::callbacks_t& callbacks) {
+     events_callbacks = callbacks;
+@@ -280,6 +290,11 @@ void vi_thread_func() {
+         // Update VI registers and swap VI modes.
+         events_context.vi.update_vi();
+ 
++        // wg3d (patch 0005): a paused game gets no VI/AI messages and no VI callback.
++        if (game_paused.load()) {
++            continue;
++        }
++
+         // If the game has started, handle sending VI and AI events.
+         if (ultramodern::is_game_started()) {
+             remaining_retraces--;

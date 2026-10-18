@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Parts adapted from Quest64-Recomp (https://github.com/Rainchus/Quest64-Recomp, GPL-3.0).
 // Structure follows Quest64-Recomp's src/main/main.cpp (SDL window/audio, RT64 renderer, RSP ucode
-// lookup), without its RmlUi launcher: the ROM comes from the command line (or the copy the runtime
-// stored on a previous run) and the game starts immediately.
+// lookup). The launcher and settings menu are this project's own (src/main/ui.cpp, Dear ImGui): the game
+// starts from the launcher, or right away in --frames test runs.
 //
 // Usage: wg3d.exe [--frames N] [--speed N] [--data-dir DIR] [--console] [path/to/rom.{z64,v64,n64}]
 #include <array>
@@ -43,6 +43,7 @@
 #include "wg3d_render.h"
 #include "wg3d_stats.h"
 #include "wg3d_trace.h"
+#include "wg3d_ui.h"
 
 namespace wg3d {
     void register_overlays();
@@ -69,6 +70,8 @@ static uint32_t speed = 1;
 // Window / gfx callbacks
 // ---------------------------------------------------------------------------------------------
 static SDL_Window* window = nullptr;
+
+static wg3d::ui::LauncherCallbacks launcher_callbacks;  // set in main()
 
 static ultramodern::gfx_callbacks_t::gfx_data_t create_gfx() {
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
@@ -104,6 +107,8 @@ static ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callba
     wg3d::input::init();
     wg3d::capture::init();
     wg3d::capture::set_render_only_for_captures(speed > 1);
+    // Test runs (--frames) start the game at once; everything else starts on the launcher.
+    wg3d::ui::init(window, smoke_frames == 0 ? &launcher_callbacks : nullptr);
 #if defined(_WIN32)
     return ultramodern::renderer::WindowHandle{ wm_info.info.win.window, GetCurrentThreadId() };
 #else
@@ -124,14 +129,13 @@ std::atomic<uint64_t> wg3d::stats::audio_out_bytes{ 0 };
 static void print_stats();
 
 // sound.json: the master volume, or silence while the window is unfocused if mute_when_unfocused is set.
-// Read by queue_samples on the audio path.
-static std::atomic<float> audio_gain{ 1.0f };
-static bool window_focused = true;
+// Read by queue_samples on the audio path, so changes in the settings menu apply at once.
+static std::atomic<bool> window_focused{ true };
 
-static void update_audio_gain() {
+static float audio_gain() {
     const wg3d::config::SoundSettings s = wg3d::config::sound_settings();
     const bool muted = s.mute_when_unfocused && !window_focused;
-    audio_gain = muted ? 0.0f : s.master_volume / 100.0f;
+    return muted ? 0.0f : s.master_volume / 100.0f;
 }
 
 static void update_gfx(void*) {
@@ -143,7 +147,6 @@ static void update_gfx(void*) {
             wg3d::config::track_window(window);
             if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED || event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
                 window_focused = event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED;
-                update_audio_gain();
             }
         } else if (event.type == SDL_KEYDOWN && !event.key.repeat) {
             // Alt+Enter / F11: windowed <-> borderless fullscreen. input.cpp ignores Enter
@@ -153,8 +156,10 @@ static void update_gfx(void*) {
                 wg3d::config::toggle_fullscreen();
             }
         }
+        wg3d::ui::handle_event(event);
         wg3d::input::handle_event(event);
     }
+    wg3d::ui::update();
     wg3d::input::update();
     wg3d::capture::update(window);
     print_stats();
@@ -247,7 +252,7 @@ static void queue_samples(int16_t* audio_data, size_t sample_count) {
         swap_buffer[i] = duplicated_sample_buffer[i];
     }
     // Convert to float, apply the volume, and swap channels (the RDRAM word swap swaps the two 16-bit samples).
-    const float scale = audio_gain.load() * (1.0f / 32768.0f);
+    const float scale = audio_gain() * (1.0f / 32768.0f);
     for (size_t i = 0; i < sample_count; i += input_channels) {
         swap_buffer[i + 0 + duplicated_input_frames * input_channels] = audio_data[i + 1] * scale;
         swap_buffer[i + 1 + duplicated_input_frames * input_channels] = audio_data[i + 0] * scale;
@@ -463,54 +468,27 @@ static std::string try_select_rom(const std::filesystem::path& rom_path) {
     return err;
 }
 
-// Two-button message box; true if the first button was pressed.
-static bool ask(SDL_MessageBoxFlags kind, const std::string& text, const char* yes, const char* no) {
-    const SDL_MessageBoxButtonData buttons[] = {
-        { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, yes },
-        { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, no },
-    };
-    const SDL_MessageBoxData data{ (Uint32)kind, nullptr, "W.G. 3D Hockey: Recompiled", text.c_str(),
-                                   SDL_arraysize(buttons), buttons, nullptr };
-    int pressed = 0;
-    return SDL_ShowMessageBox(&data, &pressed) == 0 && pressed == 1;
-}
-
-// First run without a ROM: explain, open a file picker, validate; repeat until a good ROM or the
-// player gives up. Returns false if they quit.
-static bool pick_rom() {
-    std::string prompt = std::string("Choose your ROM to play.\n\n") + wrong_rom_text;
-    if (!ask(SDL_MESSAGEBOX_INFORMATION, prompt, "Choose ROM...", "Quit")) {
-        return false;
-    }
+// The launcher's Choose ROM: a file picker, then validation. "" if a good ROM was stored (or the player
+// cancelled); otherwise a message for the launcher to show.
+static std::string choose_rom() {
     if (NFD_Init() != NFD_OKAY) {
-        exit_error(std::string("Could not open a file dialog: ") + NFD_GetError() +
-                   "\nRun once as: wg3d.exe path\\to\\rom.z64");
+        return std::string("Could not open a file dialog: ") + NFD_GetError() +
+               "\nRun once as: wg3d.exe path\\to\\rom.z64";
     }
     const nfdu8filteritem_t filters[] = { { "N64 ROM", "z64,v64,n64" } };
-    bool chosen = false;
-    while (!chosen) {
-        nfdu8char_t* out = nullptr;
-        nfdresult_t r = NFD_OpenDialogU8(&out, filters, 1, nullptr);
-        if (r == NFD_CANCEL) {
-            break;
-        }
-        if (r != NFD_OKAY) {
-            std::string err = NFD_GetError();
-            NFD_Quit();
-            exit_error("File dialog error: " + err);
-        }
+    nfdu8char_t* out = nullptr;
+    nfdresult_t r = NFD_OpenDialogU8(&out, filters, 1, nullptr);
+    std::string err;
+    if (r == NFD_OKAY) {
         std::filesystem::path rom_path{ std::u8string(reinterpret_cast<const char8_t*>(out)) };
         NFD_FreePathU8(out);
         fprintf(stderr, "[wg3d] ROM picked: %s\n", rom_path.string().c_str());
-        std::string err = try_select_rom(rom_path);
-        if (err.empty()) {
-            chosen = true;
-        } else if (!ask(SDL_MESSAGEBOX_WARNING, err, "Try again", "Quit")) {
-            break;
-        }
+        err = try_select_rom(rom_path);
+    } else if (r != NFD_CANCEL) {
+        err = std::string("File dialog error: ") + NFD_GetError();
     }
     NFD_Quit();
-    return chosen;
+    return err;
 }
 
 static std::filesystem::path app_folder_path() {
@@ -568,7 +546,6 @@ int main(int argc, char** argv) {
     recomp::register_config_path(config_path);
     // Settings (general/graphics/sound/window.json); before start so the renderer is created with them.
     wg3d::config::load();
-    update_audio_gain();
 
     recomp::GameEntry game{};
     game.rom_hash = 0xB615F7ACDFB899B4ULL;  // XXH3-64 of the big-endian US V1.0 ROM
@@ -583,24 +560,26 @@ int main(int argc, char** argv) {
 
     wg3d::register_overlays();
 
-    // ROM: from the command line (validated and stored by the runtime), else the stored copy, else a
-    // file picker (not in --frames runs, which must never wait on a dialog).
+    // ROM: from the command line (validated and stored by the runtime), else the stored copy, else the
+    // launcher's file picker (--frames runs must never wait on a dialog, so they need one already).
     recomp::check_all_stored_roms();
+    std::string rom_error;
     if (!rom_arg.empty()) {
-        std::string err = try_select_rom(std::filesystem::path{ rom_arg });
-        if (!err.empty()) {
-            exit_error(err);
+        rom_error = try_select_rom(std::filesystem::path{ rom_arg });
+        if (!rom_error.empty() && smoke_frames != 0) {
+            exit_error(rom_error);
         }
     }
-    if (!recomp::is_rom_valid(game_id)) {
-        if (smoke_frames != 0) {
-            exit_error("No ROM stored yet. Run once as: wg3d.exe path\\to\\rom.z64 (or .v64/.n64)");
-        }
-        if (!pick_rom()) {
-            fprintf(stderr, "[wg3d] no ROM chosen, quitting\n");
-            return EXIT_SUCCESS;
-        }
+    if (smoke_frames != 0 && !recomp::is_rom_valid(game_id)) {
+        exit_error("No ROM stored yet. Run once as: wg3d.exe path\\to\\rom.z64 (or .v64/.n64)");
     }
+    launcher_callbacks.rom_ready = [] { return recomp::is_rom_valid(game_id); };
+    launcher_callbacks.choose_rom = choose_rom;
+    launcher_callbacks.start_game = [] {
+        fprintf(stderr, "[wg3d] starting the game\n");
+        recomp::start_game(game_id, "");
+    };
+    launcher_callbacks.message = rom_error;
 
     SDL_InitSubSystem(SDL_INIT_AUDIO);
     reset_audio(48000);
@@ -624,8 +603,12 @@ int main(int argc, char** argv) {
     }
     fprintf(stderr, "[wg3d] FPU flush-to-zero on game threads: %s\n", ftz_enabled() ? "on" : "off (WG3D_FTZ=0)");
 
-    // No launcher UI: start the game right away. The runtime's game thread waits for this.
-    recomp::start_game(game_id, "");
+    // The launcher and menu draw through RT64's render hooks. Test runs start the game right away; otherwise
+    // the launcher starts it (the runtime's game thread waits for start_game).
+    wg3d::ui::install_render_hooks();
+    if (smoke_frames != 0) {
+        recomp::start_game(game_id, "");
+    }
     recomp::start(cfg);
     wg3d::config::save_window_state();
 
