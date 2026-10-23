@@ -58,7 +58,8 @@ the files by hand, close the game first.
 `controls.json` has `keyboard_port` (1–4, 0 = off), `deadzone` (percent), `pads` (per port, part of a controller's
 name to put on that port) and the `keyboard` and `gamepad` bindings: up to two SDL key names or controller inputs
 (`a`, `leftshoulder`, `dpup`, `leftx-`, `righttrigger`, ...) per N64 button and stick direction.
-`sound.json` has `master_volume` (0–100) and `mute_when_unfocused`. `graphics.json` has `resolution`
+`sound.json` has `master_volume` (0–100) and `mute_when_unfocused`. Widescreen: `aspect_ratio` `Expand` draws the rink
+as wide as the window; menus and the HUD stay 4:3 in the middle. `graphics.json` has `resolution`
 (`Original`/`Original2x`/`Auto`), `downsampling` (1–4), `window_mode` (`Windowed`/`Fullscreen`), `aspect_ratio`
 (`Original`/`Expand`), `hud_ratio`, `antialiasing` (`None`/`MSAA2X`/`MSAA4X`/`MSAA8X`), `refresh_rate`
 (`Original`/`Display`/`Manual`), `refresh_rate_manual`, `high_precision_framebuffer` and `graphics_api`

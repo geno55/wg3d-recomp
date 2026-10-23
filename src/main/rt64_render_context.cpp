@@ -20,6 +20,7 @@
 #include "wg3d_render.h"
 #include "wg3d_stats.h"
 #include "wg3d_ui.h"
+#include "wg3d_widescreen.h"
 
 // src/game/test_hooks.cpp: WG3D_WATCH / WG3D_POKE, run once per display list.
 void wg3d_watch(uint8_t* rdram);
@@ -213,6 +214,7 @@ wg3d::renderer::RT64Context::~RT64Context() = default;
 void wg3d::renderer::RT64Context::send_dl(const OSTask* task) {
     wg3d::stats::display_lists++;
     wg3d::stats::summarize_dl(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
+    wg3d::stats::dump_view(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
     wg3d::framelog::on_display_list(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
     wg3d_watch(app->core.RDRAM);  // WG3D_WATCH (src/game/test_hooks.cpp)
     if (!wg3d::capture::render_needed()) {
@@ -239,6 +241,7 @@ void wg3d::renderer::RT64Context::update_screen() {
     if (!wg3d::capture::render_needed()) {
         return;
     }
+    wg3d::widescreen::set_display_size(app->sharedQueueResources->swapChainWidth, app->sharedQueueResources->swapChainHeight);
     if (wg3d::ui::visible()) {
         // RT64 presents only when the screen changed; the launcher (no game yet) and the menu (game
         // paused) need a present every VI to draw over.

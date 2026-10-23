@@ -146,6 +146,19 @@ alone.
 
 ## v0.7.0 — Widescreen
 
+Status: done for the 3D view; the HUD stays at its 4:3 positions.
+- `aspect_ratio` = Expand draws the rink as wide as the window (16:9, 21:9, anything wider than 4:3).
+  RT64 only widens a projection whose scissor covers the full width, and the game scissors play to
+  x 12–308, so a hook widens that scissor (`src/game/widescreen.cpp`, `GAME_HOOKS` in `tools/gen_config.py`).
+- No culling patch was needed: players and the arena aren't culled by the view (the stands come in
+  distance bands chosen by camera distance), so nothing pops in. At 21:9, when the camera looks into a
+  corner, the far sides are black where the arena model ends; the game never had geometry there.
+- The off-screen player arrows judge "off screen" by the wide view (a second hook scales the projected x).
+- 2D (menus, HUD, pause menu) stays 4:3 in the middle. Anchoring HUD pieces to the screen edges would need
+  RT64 extended-GBI commands (`gEXSetRectAlign`) inserted into the game's display lists; not done.
+- Scenarios `widescreen_16x9` (quick) and `widescreen_21x9` (full) with goldens; `graphics` and `window`
+  scenario keys in `tools/run_scenario.py`.
+
 - **Expand aspect ratio.** **M–L** Start from RT64's `Expand` (`aspect_ratio` in `graphics.json`, now
   untested). Then add game patches as N64Recomp hooks (`tools/gen_config.py`):
   - widen culling so players don't pop in at the screen sides

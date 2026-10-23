@@ -18,6 +18,8 @@ namespace wg3d::stats {
 
     // Prints a summary of a gfx task's display list when WG3D_DL_STATS is set (src/main/dl_stats.cpp).
     void summarize_dl(const uint8_t* rdram, uint32_t dl_addr);
+    // WG3D_DL_VIEW: logs the scissors, viewports and projections of every 60th display list.
+    void dump_view(const uint8_t* rdram, uint32_t dl_addr);
     // The color image a display list draws most into (src/main/dl_stats.cpp; frame log).
     uint32_t main_color_image(const uint8_t* rdram, uint32_t dl_addr);
 }

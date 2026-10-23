@@ -28,6 +28,8 @@ namespace wg3d::config {
     // Controller Pak inserted in this port (0-3), per general.json. WG3D_PAKS overrides it in input.cpp.
     bool pak_inserted(int port);
     bool pause_when_unfocused();
+    // graphics.json aspect_ratio is Expand (widescreen game patches, src/game/widescreen.cpp).
+    bool widescreen();
 
     // The files the settings menu edits (window.json is state, not settings).
     enum class Section { General, Graphics, Sound };

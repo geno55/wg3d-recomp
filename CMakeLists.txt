@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(WG3DRecomp VERSION 0.6.0 LANGUAGES C CXX)
+project(WG3DRecomp VERSION 0.7.0 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
@@ -194,7 +194,8 @@ add_executable(wg3d
     ${CMAKE_BINARY_DIR}/wg3d.rc
     ${CMAKE_SOURCE_DIR}/src/game/pi.cpp
     ${CMAKE_SOURCE_DIR}/src/game/input.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/test_hooks.cpp)
+    ${CMAKE_SOURCE_DIR}/src/game/test_hooks.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/widescreen.cpp)
 
 target_include_directories(wg3d PRIVATE
     ${CMAKE_SOURCE_DIR}/include

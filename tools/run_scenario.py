@@ -23,6 +23,8 @@ Scenario file:
     pak = true                            # optional: false to start without a Controller Pak (default: one
                                           # in port 1; env WG3D_PAKS overrides both)
     controls = { keyboard_port = 2 }      # optional: start with these controls.json values (src/game/input.cpp)
+    graphics = { aspect_ratio = "Expand" }  # optional: start with these graphics.json values (src/main/config.cpp)
+    window = [1706, 960]                  # optional: window client size (window.json; default 1280x960)
     pak_notes = 16                        # optional: port 1's pak starts with this many notes from another
     pak_note_pages = 1                    # game, each this many 256-byte pages (16 notes = no free note
                                           # slots; 15 x 8 pages leaves 3 of 123 pages: both "PAK IS FULL")
@@ -120,6 +122,8 @@ def load(name):
     sc.setdefault("tier", "full")
     sc.setdefault("pak_notes", 0)
     sc.setdefault("controls", {})
+    sc.setdefault("graphics", {})
+    sc.setdefault("window", None)
     sc.setdefault("pak_note_pages", 1)
     return sc
 
@@ -166,6 +170,11 @@ def run_wg3d(sc, update_goldens, exe=EXE, coverage=False, frame_log=False, extra
         fill_pak(data, sc["pak_notes"], sc["pak_note_pages"])
     if sc["controls"]:
         (data / "controls.json").write_text(json.dumps(sc["controls"], indent=4), encoding="utf-8")
+    if sc["graphics"]:
+        (data / "graphics.json").write_text(json.dumps(sc["graphics"], indent=4), encoding="utf-8")
+    if sc["window"]:
+        w, h = sc["window"]
+        (data / "window.json").write_text(json.dumps({"width": w, "height": h}, indent=4), encoding="utf-8")
     env = {k: v for k, v in os.environ.items() if not k.startswith("WG3D_")}
     env["WG3D_FIXED_SEED"] = FIXED_SEED
     env.update({k: str(v) for k, v in sc["env"].items()})

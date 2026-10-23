@@ -1,0 +1,10 @@
+description = "Widescreen (aspect_ratio Expand) at 16:9, 1280x720: menus pillarboxed, exhibition faceoff and an instant replay drawn across the full width with the HUD at its 4:3 positions, then live play (src/game/widescreen.cpp)"
+tier = "quick"
+seconds = 75
+input = [[14.0, "START"], [16.0, "A"], [19.0, "A"], [22.0, "A"], [25.0, "A"],
+         [40.0, "START"], [42.0, "Y=-1", 0.2], [42.8, "Y=-1", 0.2], [44.0, "A"]]
+captures = [[17.0, "players"], [38.0, "faceoff"], [43.5, "pause_replay"], [47.0, "replay_1"], [52.0, "replay_2"],
+            [57.0, "replay_3"], [64.0, "replay_4"], [72.0, "play", "nogolden"]]
+graphics = { aspect_ratio = "Expand" }
+window = [1280, 720]
+ares = false

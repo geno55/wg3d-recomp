@@ -109,8 +109,27 @@ static void poke(uint8_t* rdram) {
 // WG3D_WATCH="<hex addr>:<b|h|w|f>,..." (byte, halfword, word, float): logs the values, with the game
 // time, whenever one of them changes (checked on every display list, i.e. once per game frame), e.g.
 // both teams' goals: WG3D_WATCH=800E6AB0:h,800E9F8C:h. Also applies WG3D_POKE.
+// WG3D_RDRAM_DUMP=<t>:<file>: writes RDRAM (8 MB, as big-endian bytes like the N64 sees them) to <file>
+// once game time passes t seconds. For reverse engineering (finding tables by value).
+static void dump_rdram(uint8_t* rdram) {
+    static const char* spec = std::getenv("WG3D_RDRAM_DUMP");
+    static bool done = false;
+    if (!spec || done) return;
+    const char* colon = std::strchr(spec, ':');
+    if (!colon || wg3d::input::script_time() < std::atof(spec)) return;
+    done = true;
+    std::vector<uint8_t> out(0x800000);
+    for (uint32_t i = 0; i < out.size(); i++) out[i] = rdram[i ^ 3];  // RDRAM is stored word-swapped
+    if (FILE* f = std::fopen(colon + 1, "wb")) {
+        std::fwrite(out.data(), 1, out.size(), f);
+        std::fclose(f);
+        std::fprintf(stderr, "[wg3d] RDRAM dumped to %s at t=%.2f\n", colon + 1, wg3d::input::script_time());
+    }
+}
+
 void wg3d_watch(uint8_t* rdram) {
     poke(rdram);
+    dump_rdram(rdram);
     struct Item { uint32_t addr; char type; };
     static const std::vector<Item> items = [] {
         std::vector<Item> out;

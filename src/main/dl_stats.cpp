@@ -1,12 +1,16 @@
 // Display-list summary for bring-up: walks an F3D display list in RDRAM and counts what
 // it draws, to tell "the game draws nothing" apart from "RT64 renders it wrong". Enabled with
 // WG3D_DL_STATS=1; prints the first 10 gfx tasks, then every 60th.
+// WG3D_DL_VIEW=1 (every 60th task) or WG3D_DL_VIEW=<t0>-<t1> (every task in that game-time window, in
+// seconds): the scissors, viewports, projection matrices and sub-display-list calls of a display list, with
+// the DL address of each command (for widescreen work: what RT64's Expand sees, and what the game culls).
 #include <cinttypes>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
 
+#include "wg3d_input.h"
 #include "wg3d_stats.h"
 
 namespace {
@@ -138,4 +142,75 @@ uint32_t wg3d::stats::main_color_image(const uint8_t* rdram, uint32_t dl_addr) {
         }
     }
     return best;
+}
+
+void wg3d::stats::dump_view(const uint8_t* rdram, uint32_t dl_addr) {
+    static const char* spec = std::getenv("WG3D_DL_VIEW");
+    static uint64_t count = 0;
+    if (!spec) {
+        return;
+    }
+    double t0 = 0, t1 = 0;
+    if (std::sscanf(spec, "%lf-%lf", &t0, &t1) == 2) {
+        const double t = wg3d::input::script_time();
+        if (t < t0 || t > t1) return;
+    } else if (count++ % 60 != 0) {
+        return;
+    }
+    auto half = [&](uint32_t phys) {
+        uint32_t w = word(rdram, phys & ~3u);
+        return (int16_t)((phys & 2) ? (w & 0xFFFF) : (w >> 16));
+    };
+    uint32_t segments[16] = {};
+    uint32_t stack[16];
+    int depth = 0;
+    uint32_t pc = dl_addr & 0x7FFFFF;
+    auto resolve = [&](uint32_t a) { return (segments[(a >> 24) & 0xF] + (a & 0xFFFFFF)) & 0x7FFFFF; };
+    std::fprintf(stderr, "[wg3d] view dl @%06X t=%.3f\n", dl_addr, wg3d::input::script_time());
+    int tris_since = 0;
+    for (int cmds = 0; cmds < 200000; cmds++) {
+        const uint32_t at = pc;
+        uint32_t w0 = word(rdram, pc), w1 = word(rdram, pc + 4);
+        pc += 8;
+        uint8_t op = w0 >> 24;
+        if (op == 0xB8) {
+            if (depth == 0) break;
+            pc = stack[--depth];
+        } else if (op == 0x06) {
+            std::fprintf(stderr, "[wg3d]   %06X dl %08X -> %06X depth %d\n", at, w1, resolve(w1), depth);
+            if (((w0 >> 16) & 0xFF) == 0) {
+                if (depth == 16) break;
+                stack[depth++] = pc;
+            }
+            pc = resolve(w1);
+        } else if (op == 0xBC) {
+            if ((w0 & 0xFF) == 0x06) segments[((w0 >> 8) & 0xFFFF) / 4 & 0xF] = w1 & 0x7FFFFF;
+        } else if (op == 0xBF || op == 0xB1) {
+            tris_since++;
+        } else if (op == 0xED) {  // G_SETSCISSOR
+            std::fprintf(stderr, "[wg3d]   %06X (tris before: %d) scissor %.2f,%.2f - %.2f,%.2f mode %u\n", at, tris_since,
+                         ((w0 >> 12) & 0xFFF) / 4.0, (w0 & 0xFFF) / 4.0, ((w1 >> 12) & 0xFFF) / 4.0, (w1 & 0xFFF) / 4.0, (w1 >> 24) & 3);
+            tris_since = 0;
+        } else if (op == 0x03 && ((w0 >> 16) & 0xFF) == 0x80) {  // G_MOVEMEM viewport
+            uint32_t v = resolve(w1);
+            std::fprintf(stderr, "[wg3d]   %06X (tris before: %d) viewport @%06X scale %d,%d,%d trans %d,%d,%d (x %.1f-%.1f y %.1f-%.1f)\n",
+                         at, tris_since, v, half(v), half(v + 2), half(v + 4), half(v + 8), half(v + 10), half(v + 12),
+                         (half(v + 8) - half(v)) / 4.0, (half(v + 8) + half(v)) / 4.0,
+                         (half(v + 10) - half(v + 2)) / 4.0, (half(v + 10) + half(v + 2)) / 4.0);
+            tris_since = 0;
+        } else if (op == 0x01) {  // G_MTX
+            uint8_t params = (w0 >> 16) & 0xFF;
+            if (params & 0x01) {  // G_MTX_PROJECTION
+                uint32_t m = resolve(w1);
+                // s15.16 fixed point: integer halves at m..m+31, fractions at m+32..
+                auto elem = [&](int r, int c) {
+                    int i = r * 4 + c;
+                    return half(m + i * 2) + (uint16_t)half(m + 32 + i * 2) / 65536.0;
+                };
+                std::fprintf(stderr, "[wg3d]   %06X projection %s @%06X [%.3f %.3f %.3f %.3f] [%.3f %.3f %.3f %.3f] row3 [%.3f %.3f %.3f %.3f]\n",
+                             at, (params & 0x02) ? "load" : "mul", m, elem(0, 0), elem(0, 1), elem(0, 2), elem(0, 3),
+                             elem(1, 0), elem(1, 1), elem(1, 2), elem(1, 3), elem(3, 0), elem(3, 1), elem(3, 2), elem(3, 3));
+            }
+        }
+    }
 }

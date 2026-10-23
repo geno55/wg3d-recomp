@@ -52,7 +52,10 @@ SETTINGS AND SAVES  (%APPDATA%\WG3DRecomp)
 
 KNOWN LIMITATIONS
   - A correctness pass is in progress; report problems on GitHub (attach the log or crash report).
-  - Widescreen and high frame rate are not supported yet.
+  - High frame rate is not supported yet.
+  - Widescreen (Settings > Graphics > Aspect ratio > Expand) widens the rink only; menus and the HUD stay
+    4:3 in the middle, and at very wide ratios the corners of the arena can show black where the game
+    has no scenery.
 
 LICENSE
   GPL-3.0 (LICENSE.txt). wg3d.exe contains this project's code (GPL-3.0), N64ModernRuntime (GPL-3.0) and

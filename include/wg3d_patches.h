@@ -23,6 +23,13 @@ void wg3d_fight_log(uint8_t* rdram, recomp_context* ctx);
 // src/game/test_hooks.cpp: with WG3D_FIGHT_LOG set, logs that a fight starts (func_8003752C).
 void wg3d_fight_start(uint8_t* rdram, recomp_context* ctx);
 
+// src/game/widescreen.cpp: with aspect_ratio = Expand, widens the gameplay scissor func_80001FE4 just
+// wrote ($v1) to the full screen width, so RT64 widens the rink.
+void wg3d_wide_scissor(uint8_t* rdram, recomp_context* ctx);
+// src/game/widescreen.cpp: in widescreen, scales the projected x of a player ($sp+0xFC) towards the centre
+// so off-screen arrows only appear for players outside the wide view.
+void wg3d_wide_marker(uint8_t* rdram, recomp_context* ctx);
+
 #ifdef __cplusplus
 }
 #endif

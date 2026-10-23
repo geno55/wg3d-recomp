@@ -76,6 +76,16 @@ before_vram = 0x80065200
 text = "wg3d_spin_yield(rdram); /* wg3d: busy-wait on 8009F38C (docs/spinloops.md) */"
 
 [[patches.hook]]
+func = "func_80001FE4"
+before_vram = 0x800023A4
+text = "wg3d_wide_scissor(rdram, ctx); /* wg3d: widescreen, gameplay scissor */"
+
+[[patches.hook]]
+func = "func_8006CB9C"
+before_vram = 0x8006CC8C
+text = "wg3d_wide_marker(rdram, ctx); /* wg3d: widescreen, off-screen arrows */"
+
+[[patches.hook]]
 func = "func_80047E5C"
 before_vram = 0x80047F50
 text = "wg3d_seed_override(rdram, ctx); /* wg3d: WG3D_FIXED_SEED */"

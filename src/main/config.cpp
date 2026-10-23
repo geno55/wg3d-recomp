@@ -96,10 +96,12 @@ namespace {
             { { WindowMode::Windowed, "Windowed" }, { WindowMode::Fullscreen, "Fullscreen" } },
             WindowMode::Windowed);
         graphics.add_enum_option("aspect_ratio", "Aspect ratio",
-            "Expand renders the game wider than 4:3. Untested; may show culling and HUD problems.",
-            { { AspectRatio::Original, "Original" }, { AspectRatio::Expand, "Expand" } },
+            "Expand fills a wider window (widescreen): the rink is drawn as wide as the window, while menus and the "
+            "HUD keep their 4:3 places in the middle.",
+            { { AspectRatio::Original, "Original", "Original (4:3)" }, { AspectRatio::Expand, "Expand", "Expand (widescreen)" } },
             AspectRatio::Original);
-        graphics.add_enum_option("hud_ratio", "HUD aspect ratio", "",
+        graphics.add_enum_option("hud_ratio", "HUD aspect ratio",
+            "For games that use RT64's extended display lists; this game doesn't, so it has no effect.",
             { { HUDRatioMode::Original, "Original" }, { HUDRatioMode::Clamp16x9, "Clamp16x9", "Clamp to 16:9" },
               { HUDRatioMode::Full, "Full" } },
             HUDRatioMode::Original);
@@ -227,6 +229,10 @@ wg3d::config::SoundSettings wg3d::config::sound_settings() {
 
 bool wg3d::config::pak_inserted(int port) {
     return port >= 0 && port < wg3d::input::NumPorts && get_bool(general, pak_option(port));
+}
+
+bool wg3d::config::widescreen() {
+    return get_enum<AspectRatio>(graphics, "aspect_ratio") == AspectRatio::Expand;
 }
 
 bool wg3d::config::pause_when_unfocused() {
