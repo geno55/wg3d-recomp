@@ -63,7 +63,9 @@ as wide as the window; menus and the HUD stay 4:3 in the middle. `graphics.json`
 (`Original`/`Original2x`/`Auto`), `downsampling` (1–4), `window_mode` (`Windowed`/`Fullscreen`), `aspect_ratio`
 (`Original`/`Expand`), `hud_ratio`, `antialiasing` (`None`/`MSAA2X`/`MSAA4X`/`MSAA8X`), `refresh_rate`
 (`Original`/`Display`/`Manual`), `refresh_rate_manual`, `high_precision_framebuffer` and `graphics_api`
-(`Auto`/`D3D12`/`Vulkan`). `window.json` remembers the window's size and position.
+(`Auto`/`D3D12`/`Vulkan`). `window.json` remembers the window's size and position. High frame rate: `refresh_rate`
+`Display` (or `Manual`) has RT64 generate frames between the game's 30, up to the monitor's rate; camera cuts are
+shown without interpolation.
 
 Verification scripts: `tools/verify_syms.py`, `tools/verify_recompile.py`, `tools/verify_boot.py`. Scenario tests:
 `python tools/run_scenario.py quick` after a change, `all` before a release (runs the game at 10x speed, 3 sessions
@@ -81,8 +83,12 @@ it is GPL-3.0.
 The game itself is not covered: its code and data belong to their rights holders, and nothing derived from
 the ROM is in this repository.
 
-## Runtime patches
+## Submodule patches
 `lib/N64ModernRuntime` is pinned to sonicdcer's `controller_pak_super_rebase` branch (Controller Pak support);
 `patches/runtime/` holds this project's changes on top (VI null-mode fix, per-port paks + pak call log, a lockstep
-speed multiplier for fast test runs, the full-pak check, and pausing the game for the menu), applied when CMake
-configures.
+speed multiplier for fast test runs, the full-pak check, and pausing the game for the menu). `patches/rt64/` holds
+four changes to RT64 for frame interpolation: camera cuts are presented without it and not matched to the frame
+before; object pairs that jump more than a set distance aren't interpolated; presents repeated over the paused
+game (settings menu) show the last frame without interpolation; and a race between destroying render targets on
+a settings change and presenting them is fixed. Both are applied when
+CMake configures.

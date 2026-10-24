@@ -5,8 +5,10 @@
 // project doesn't use (yet). The launcher/menu draw through RT64's render hooks (src/main/ui_render.cpp).
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 
 #include "hle/rt64_application.h"
@@ -17,6 +19,7 @@
 #include "wg3d_crash.h"
 #include "wg3d_capture.h"
 #include "wg3d_frame_log.h"
+#include "wg3d_input.h"
 #include "wg3d_render.h"
 #include "wg3d_stats.h"
 #include "wg3d_ui.h"
@@ -24,6 +27,79 @@
 
 // src/game/test_hooks.cpp: WG3D_WATCH / WG3D_POKE, run once per display list.
 void wg3d_watch(uint8_t* rdram);
+
+// Camera cuts for frame interpolation (refresh rate above the game's 30 fps). RT64 interpolates between
+// every pair of matched frames; it doesn't know when the game's camera cuts (a replay starting or ending,
+// a faceoff reset, a change of screen), and would show an in-between frame mixing two unrelated views.
+// The game folds its camera into the projection matrix, so the camera position is the point that
+// projection maps to x = y = w = 0. In play the camera moves at most ~217 units (its speed cap) and turns
+// at most ~7 degrees per frame; the cuts seen (replay start, faceoff resets, the start of play) move 995 to
+// 11000 units, most also turning 80-110 degrees. Such frames, and the first frame with a 3D view after one
+// without, are presented without interpolation (State::skipInterpolation, patches/rt64/0001).
+namespace {
+    struct Camera {
+        double pos[3];
+        double fwd[3];
+    };
+
+    bool camera_from(const double m[4][4], Camera& c) {
+        // Solve [x y z 1] * m[:, {0, 1, 3}] = 0 (Cramer's rule).
+        const int cols[3] = { 0, 1, 3 };
+        double a[3][3], b[3];
+        for (int k = 0; k < 3; k++) {
+            for (int r = 0; r < 3; r++) a[k][r] = m[r][cols[k]];
+            b[k] = -m[3][cols[k]];
+        }
+        auto det3 = [](const double x[3][3]) {
+            return x[0][0] * (x[1][1] * x[2][2] - x[1][2] * x[2][1]) - x[0][1] * (x[1][0] * x[2][2] - x[1][2] * x[2][0]) +
+                   x[0][2] * (x[1][0] * x[2][1] - x[1][1] * x[2][0]);
+        };
+        const double d = det3(a);
+        if (std::fabs(d) < 1e-12) return false;
+        for (int r = 0; r < 3; r++) {
+            double t[3][3];
+            std::memcpy(t, a, sizeof(t));
+            for (int k = 0; k < 3; k++) t[k][r] = b[k];
+            c.pos[r] = det3(t) / d;
+        }
+        // Viewing direction: perpendicular to the planes clip x = 0 and clip y = 0.
+        const double x[3] = { m[0][0], m[1][0], m[2][0] }, y[3] = { m[0][1], m[1][1], m[2][1] };
+        double f[3] = { x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0] };
+        const double n = std::sqrt(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]);
+        if (n < 1e-12) return false;
+        for (int i = 0; i < 3; i++) c.fwd[i] = f[i] / n;
+        return true;
+    }
+
+    // True if this display list's camera is a cut from the previous display list's.
+    bool camera_cut(const uint8_t* rdram, uint32_t dl_addr) {
+        constexpr double MaxMove = 400.0;
+        constexpr double MaxTurnDegrees = 25.0;
+        static bool have_prev = false;
+        static Camera prev{};
+        double m[4][4];
+        Camera cur{};
+        if (!wg3d::stats::camera_matrix(rdram, dl_addr, m) || !camera_from(m, cur)) {
+            have_prev = false;  // no 3D view: whatever comes next starts fresh
+            return false;
+        }
+        bool cut = !have_prev;
+        if (have_prev) {
+            const double dx = cur.pos[0] - prev.pos[0], dy = cur.pos[1] - prev.pos[1], dz = cur.pos[2] - prev.pos[2];
+            const double move = std::sqrt(dx * dx + dy * dy + dz * dz);
+            const double dot = std::clamp(cur.fwd[0] * prev.fwd[0] + cur.fwd[1] * prev.fwd[1] + cur.fwd[2] * prev.fwd[2], -1.0, 1.0);
+            const double turn = std::acos(dot) * 180.0 / 3.14159265358979;
+            if (move > MaxMove || turn > MaxTurnDegrees) {
+                cut = true;
+                std::fprintf(stderr, "[wg3d] camera cut at t=%.2f (moved %.0f, turned %.0f degrees): not interpolated\n",
+                             wg3d::input::script_time(), move, turn);
+            }
+        }
+        prev = cur;
+        have_prev = true;
+        return cut;
+    }
+}
 
 static uint8_t DMEM[0x1000];
 static uint8_t IMEM[0x1000];
@@ -217,8 +293,14 @@ void wg3d::renderer::RT64Context::send_dl(const OSTask* task) {
     wg3d::stats::dump_view(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
     wg3d::framelog::on_display_list(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
     wg3d_watch(app->core.RDRAM);  // WG3D_WATCH (src/game/test_hooks.cpp)
+    // Checked on every display list, so the previous camera is always the previous frame's (fast test runs
+    // render only some of them).
+    const bool cut = camera_cut(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF);
     if (!wg3d::capture::render_needed()) {
         return;  // fast test run, no capture coming up (wg3d_capture.h)
+    }
+    if (cut) {
+        app->state->skipInterpolation = true;
     }
     app->state->rsp->reset();
     app->interpreter->loadUCodeGBI(task->t.ucode & 0x3FFFFFF, task->t.ucode_data & 0x3FFFFFF, true);
@@ -242,9 +324,12 @@ void wg3d::renderer::RT64Context::update_screen() {
         return;
     }
     wg3d::widescreen::set_display_size(app->sharedQueueResources->swapChainWidth, app->sharedQueueResources->swapChainHeight);
+    // RT64 presents only when the screen changed; the launcher (no game yet) and the menu (game paused) need a
+    // present every VI to draw over. Those presents show the last game frame as it is: with interpolation on,
+    // each one otherwise replayed the last frame's interpolated in-betweens, and the background behind the
+    // menu jumped back and forth (State::skipPresentInterpolation, patches/rt64/0004).
+    app->state->skipPresentInterpolation = wg3d::ui::visible();
     if (wg3d::ui::visible()) {
-        // RT64 presents only when the screen changed; the launcher (no game yet) and the menu (game
-        // paused) need a present every VI to draw over.
         app->state->updateScreen(app->core.decodeVI(), true);
     } else {
         app->updateScreen();
@@ -266,7 +351,14 @@ bool wg3d::renderer::RT64Context::update_config(const ultramodern::renderer::Gra
         app->setFullScreen(new_config.wm_option == ultramodern::renderer::WindowMode::Fullscreen);
     }
     set_application_user_config(app.get(), new_config);
-    app->updateUserConfig(true);
+    // Discarding the framebuffers destroys RT64's render targets, interpolated ones included, which can race
+    // with a present still showing one (switching the frame rate from Display back to Original crashed in
+    // VIRenderer::render). Only changes to how frames are rendered need it; the frame rate and window mode
+    // don't.
+    const bool discard_fbs = new_config.res_option != old_config.res_option || new_config.ds_option != old_config.ds_option ||
+                             new_config.ar_option != old_config.ar_option || new_config.hr_option != old_config.hr_option ||
+                             new_config.msaa_option != old_config.msaa_option || new_config.hpfb_option != old_config.hpfb_option;
+    app->updateUserConfig(discard_fbs);
     if (new_config.msaa_option != old_config.msaa_option) {
         app->updateMultisampling();
     }

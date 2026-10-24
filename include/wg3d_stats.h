@@ -20,6 +20,9 @@ namespace wg3d::stats {
     void summarize_dl(const uint8_t* rdram, uint32_t dl_addr);
     // WG3D_DL_VIEW: logs the scissors, viewports and projections of every 60th display list.
     void dump_view(const uint8_t* rdram, uint32_t dl_addr);
+    // The camera (combined projection and look-at matrix) of a display list's first perspective geometry;
+    // false if it draws none (menus, 2D screens).
+    bool camera_matrix(const uint8_t* rdram, uint32_t dl_addr, double out[4][4]);
     // The color image a display list draws most into (src/main/dl_stats.cpp; frame log).
     uint32_t main_color_image(const uint8_t* rdram, uint32_t dl_addr);
 }

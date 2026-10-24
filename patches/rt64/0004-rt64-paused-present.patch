@@ -1,0 +1,47 @@
+diff --git a/src/hle/rt64_present.h b/src/hle/rt64_present.h
+--- a/src/hle/rt64_present.h
++++ b/src/hle/rt64_present.h
+@@ -21,6 +21,7 @@ namespace RT64 {
+         std::vector<FramebufferOperation> fbOperations;
+         DebuggerFramebuffer debuggerFramebuffer;
+         bool paused = false;
++        bool skipInterpolation = false;  // wg3d (patches/rt64/0004): State::skipPresentInterpolation
+         uint64_t presentId = 0;
+         uint64_t workloadId = 0;
+     };
+diff --git a/src/hle/rt64_present_queue.cpp b/src/hle/rt64_present_queue.cpp
+--- a/src/hle/rt64_present_queue.cpp
++++ b/src/hle/rt64_present_queue.cpp
+@@ -191,7 +191,7 @@ namespace RT64 {
+                     }
+                 }
+ 
+-                if (presentFb->interpolationEnabled) {
++                if (presentFb->interpolationEnabled && !present.skipInterpolation) {  // wg3d (patches/rt64/0004)
+                     framesToPresent = frameCounters.count;
+                 }
+                 else {
+diff --git a/src/hle/rt64_state.cpp b/src/hle/rt64_state.cpp
+--- a/src/hle/rt64_state.cpp
++++ b/src/hle/rt64_state.cpp
+@@ -2668,6 +2668,7 @@ namespace RT64 {
+         present.presentId = ++presentId;
+         present.workloadId = workloadId;
+         present.paused = paused;
++        present.skipInterpolation = skipPresentInterpolation;
+         present.debuggerFramebuffer.address = debuggerInspector.renderer.framebufferAddress;
+         present.debuggerFramebuffer.view = (debuggerInspector.renderer.framebufferIndex >= 0);
+     }
+diff --git a/src/hle/rt64_state.h b/src/hle/rt64_state.h
+--- a/src/hle/rt64_state.h
++++ b/src/hle/rt64_state.h
+@@ -120,6 +120,9 @@ namespace RT64 {
+         uint64_t presentId = 0;
+         // wg3d (patches/rt64/0001): the next workload is a camera cut; it is presented without interpolation.
+         bool skipInterpolation = false;
++        // wg3d (patches/rt64/0004): presents queued while this is set show the last frame without its
++        // interpolated in-betweens (presents repeated over a paused game).
++        bool skipPresentInterpolation = false;
+         uint32_t ditherRandomSeed = 0;
+         uint32_t renderFlagSampleCount = 0;
+         External ext;

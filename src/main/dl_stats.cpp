@@ -5,6 +5,8 @@
 // seconds): the scissors, viewports, projection matrices and sub-display-list calls of a display list, with
 // the DL address of each command (for widescreen work: what RT64's Expand sees, and what the game culls).
 #include <cinttypes>
+#include <cmath>
+#include <cstring>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -213,4 +215,60 @@ void wg3d::stats::dump_view(const uint8_t* rdram, uint32_t dl_addr) {
             }
         }
     }
+}
+
+// The game's camera: the projection matrix stack (G_MTX with G_MTX_PROJECTION; the game loads the
+// perspective and multiplies its look-at onto it) as it stands at the first vertex load drawn with a
+// perspective projection. Row-vector convention, as the N64 uses: clip = [x y z 1] * m.
+bool wg3d::stats::camera_matrix(const uint8_t* rdram, uint32_t dl_addr, double out[4][4]) {
+    auto half = [&](uint32_t phys) {
+        uint32_t w = word(rdram, phys & ~3u);
+        return (int16_t)((phys & 2) ? (w & 0xFFFF) : (w >> 16));
+    };
+    uint32_t segments[16] = {};
+    uint32_t stack[16];
+    int depth = 0;
+    uint32_t pc = dl_addr & 0x7FFFFF;
+    auto resolve = [&](uint32_t a) { return (segments[(a >> 24) & 0xF] + (a & 0xFFFFFF)) & 0x7FFFFF; };
+    double proj[4][4] = { { 1, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, 1, 0 }, { 0, 0, 0, 1 } };
+    for (int cmds = 0; cmds < 200000; cmds++) {
+        uint32_t w0 = word(rdram, pc), w1 = word(rdram, pc + 4);
+        pc += 8;
+        uint8_t op = w0 >> 24;
+        if (op == 0xB8) {
+            if (depth == 0) break;
+            pc = stack[--depth];
+        } else if (op == 0x06) {
+            if (((w0 >> 16) & 0xFF) == 0) {
+                if (depth == 16) break;
+                stack[depth++] = pc;
+            }
+            pc = resolve(w1);
+        } else if (op == 0xBC) {
+            if ((w0 & 0xFF) == 0x06) segments[((w0 >> 8) & 0xFFFF) / 4 & 0xF] = w1 & 0x7FFFFF;
+        } else if (op == 0x01 && (((w0 >> 16) & 0xFF) & 0x01)) {  // G_MTX, G_MTX_PROJECTION
+            const uint32_t m = resolve(w1);
+            double mtx[4][4];
+            for (int i = 0; i < 16; i++) {
+                const int32_t fixed = ((int32_t)half(m + i * 2) << 16) | (uint16_t)half(m + 32 + i * 2);
+                mtx[i / 4][i % 4] = fixed / 65536.0;
+            }
+            if (((w0 >> 16) & 0xFF) & 0x02) {  // G_MTX_LOAD
+                std::memcpy(proj, mtx, sizeof(proj));
+            } else {  // G_MTX_MUL: new = mtx * current
+                double r[4][4];
+                for (int i = 0; i < 4; i++)
+                    for (int j = 0; j < 4; j++) r[i][j] = mtx[i][0] * proj[0][j] + mtx[i][1] * proj[1][j] + mtx[i][2] * proj[2][j] + mtx[i][3] * proj[3][j];
+                std::memcpy(proj, r, sizeof(proj));
+            }
+        } else if (op == 0x04) {  // G_VTX: the first geometry drawn with a perspective projection
+            // w depends on position: column 3 isn't (0, 0, 0, w) as in an orthographic projection.
+            const bool perspective = std::fabs(proj[0][3]) + std::fabs(proj[1][3]) + std::fabs(proj[2][3]) > 1e-6;
+            if (perspective) {
+                std::memcpy(out, proj, sizeof(proj));
+                return true;
+            }
+        }
+    }
+    return false;
 }

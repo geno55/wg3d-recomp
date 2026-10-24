@@ -1,0 +1,9 @@
+description = "Frame interpolation (refresh_rate Display): the replay scenario's path, checking that camera cuts are found so they aren't interpolated: the start of play and the start of the instant replay (src/main/rt64_render_context.cpp camera_cut). Captures vary with presentation timing, so they have no goldens."
+tier = "quick"
+seconds = 50
+input = [[14.0, "START"], [16.0, "A"], [19.0, "A"], [22.0, "A"], [25.0, "A"],
+         [40.0, "START"], [42.0, "Y=-1", 0.2], [42.8, "Y=-1", 0.2], [44.0, "A"]]
+captures = [[38.0, "faceoff", "nogolden"], [47.0, "replay", "nogolden"]]
+graphics = { refresh_rate = "Display" }
+expect = ["camera cut at t=29\\.7", "camera cut at t=43\\.6"]
+ares = false

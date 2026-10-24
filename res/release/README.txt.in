@@ -52,7 +52,8 @@ SETTINGS AND SAVES  (%APPDATA%\WG3DRecomp)
 
 KNOWN LIMITATIONS
   - A correctness pass is in progress; report problems on GitHub (attach the log or crash report).
-  - High frame rate is not supported yet.
+  - High frame rate (Settings > Graphics > Frame rate > Display) generates frames between the game's 30
+    per second, up to your monitor's rate. The menus and 2D screens stay at 30.
   - Widescreen (Settings > Graphics > Aspect ratio > Expand) widens the rink only; menus and the HUD stay
     4:3 in the middle, and at very wide ratios the corners of the arena can show black where the game
     has no scenery.

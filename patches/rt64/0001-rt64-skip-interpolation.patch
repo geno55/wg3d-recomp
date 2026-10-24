@@ -1,0 +1,51 @@
+diff --git a/src/hle/rt64_state.cpp b/src/hle/rt64_state.cpp
+index 2970e71..9b6a41a 100644
+--- a/src/hle/rt64_state.cpp
++++ b/src/hle/rt64_state.cpp
+@@ -2660,6 +2660,8 @@ namespace RT64 {
+         workload.debuggerCamera = debuggerInspector.camera;
+         workload.debuggerRenderer = debuggerInspector.renderer;
+         workload.paused = paused;
++        workload.skipInterpolation = skipInterpolation;
++        skipInterpolation = false;
+     }
+ 
+     void State::advancePresent(Present &present, bool paused) {
+diff --git a/src/hle/rt64_state.h b/src/hle/rt64_state.h
+index 7a8c13b..6b6c365 100644
+--- a/src/hle/rt64_state.h
++++ b/src/hle/rt64_state.h
+@@ -118,6 +118,8 @@ namespace RT64 {
+         bool configurationSaveQueued = false;
+         uint64_t workloadId = 0;
+         uint64_t presentId = 0;
++        // wg3d (patches/rt64/0001): the next workload is a camera cut; it is presented without interpolation.
++        bool skipInterpolation = false;
+         uint32_t ditherRandomSeed = 0;
+         uint32_t renderFlagSampleCount = 0;
+         External ext;
+diff --git a/src/hle/rt64_workload.h b/src/hle/rt64_workload.h
+index 8ea27d5..db15bbb 100644
+--- a/src/hle/rt64_workload.h
++++ b/src/hle/rt64_workload.h
+@@ -234,6 +234,7 @@ namespace RT64 {
+         uint64_t workloadId = 0;
+         uint64_t presentId = 0;
+         bool paused = false;
++        bool skipInterpolation = false;  // wg3d (patches/rt64/0001): State::skipInterpolation
+ 
+         struct {
+             uint32_t testZIndexCount = 0;
+diff --git a/src/hle/rt64_workload_queue.cpp b/src/hle/rt64_workload_queue.cpp
+index 5a331aa..33291d7 100644
+--- a/src/hle/rt64_workload_queue.cpp
++++ b/src/hle/rt64_workload_queue.cpp
+@@ -986,7 +986,7 @@ namespace RT64 {
+                     matchingProfiler.log();
+ 
+                     const bool displayRateAboveOriginal = (workload.viOriginalRate > 0) && (workloadConfig.targetRate > workload.viOriginalRate);
+-                    generateInterpolatedFrames = !workload.paused && displayRateAboveOriginal && !interpolationTargetKey.isEmpty();
++                    generateInterpolatedFrames = !workload.paused && !workload.skipInterpolation && displayRateAboveOriginal && !interpolationTargetKey.isEmpty();
+ 
+                     const bool resetTicks = !generateInterpolatedFrames || (originalRateForTicks != workload.viOriginalRate) || (displayRateForTicks != workloadConfig.targetRate) || !displayRateAboveOriginal;
+                     if (resetTicks) {

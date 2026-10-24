@@ -177,6 +177,7 @@ def run_wg3d(sc, update_goldens, exe=EXE, coverage=False, frame_log=False, extra
         (data / "window.json").write_text(json.dumps({"width": w, "height": h}, indent=4), encoding="utf-8")
     env = {k: v for k, v in os.environ.items() if not k.startswith("WG3D_")}
     env["WG3D_FIXED_SEED"] = FIXED_SEED
+    env["WG3D_IGNORE_PADS"] = "1"  # a controller plugged into this machine must not take a port
     env.update({k: str(v) for k, v in sc["env"].items()})
     env.update(extra_env or {})
     env["WG3D_INPUT_SCRIPT"] = input_script(sc)

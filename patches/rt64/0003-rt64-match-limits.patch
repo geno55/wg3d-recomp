@@ -1,0 +1,33 @@
+diff --git a/src/hle/rt64_game_frame.cpp b/src/hle/rt64_game_frame.cpp
+--- a/src/hle/rt64_game_frame.cpp
++++ b/src/hle/rt64_game_frame.cpp
+@@ -587,7 +587,12 @@ namespace RT64 {
+             prevRigidBody = (firstPrevWorkloadMap != nullptr) ? &firstPrevWorkloadMap->transforms[indices.second].rigidBody : nullptr;
+ 
+             TransformMatchResult matchResult = computeTransformMatch(curTransform, firstCurViewProj, prevTransform, firstPrevViewProj, prevRigidBody);
+-            if (matchResult.valid) {
++            // wg3d (patches/rt64/0003): a pair that moved further than this (after velocity prediction) is a
++            // teleport or a different object with the same draw state, not motion; such a transform is drawn
++            // where it is instead of interpolated. 400 W.G. 3D Hockey world units: normal play exceeds it in
++            // ~0.15% of pairs (fast puck), faceoff resets by thousands.
++            constexpr float MaxMatchDistance = 400.0f;
++            if (matchResult.valid && (matchResult.positionDifference <= MaxMatchDistance)) {
+                 matchCandidates.emplace_back(indices.first, indices.second, matchResult.computeDifference());
+             }
+         }
+diff --git a/src/hle/rt64_workload_queue.cpp b/src/hle/rt64_workload_queue.cpp
+--- a/src/hle/rt64_workload_queue.cpp
++++ b/src/hle/rt64_workload_queue.cpp
+@@ -983,7 +983,11 @@ namespace RT64 {
+                 if (requiresFrameMatching) {
+                     matchingProfiler.reset();
+                     matchingProfiler.start();
+-                    curFrame.match(ext.workloadGraphicsWorker, *this, prevFrame, ext.workloadVelocityUploader, velocityUploaderUsed, tileInterpolationUsed, lookAtInterpolationUsed);
++                    // wg3d (patches/rt64/0003): a camera cut isn't matched to the frame before it, so the frame after
++                    // it doesn't extrapolate the teleports of the cut as motion.
++                    if (!workload.skipInterpolation) {
++                        curFrame.match(ext.workloadGraphicsWorker, *this, prevFrame, ext.workloadVelocityUploader, velocityUploaderUsed, tileInterpolationUsed, lookAtInterpolationUsed);
++                    }
+                     matchingProfiler.end();
+                     matchingProfiler.log();
+ 

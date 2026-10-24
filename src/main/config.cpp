@@ -109,11 +109,13 @@ namespace {
             { { Antialiasing::None, "None" }, { Antialiasing::MSAA2X, "MSAA2X", "MSAA 2x" }, { Antialiasing::MSAA4X, "MSAA4X", "MSAA 4x" },
               { Antialiasing::MSAA8X, "MSAA8X", "MSAA 8x" } },
             Antialiasing::None);
-        graphics.add_enum_option("refresh_rate", "Refresh rate",
-            "Original: the game's rate. Display: the monitor's. Manual: refresh_rate_manual.",
-            { { RefreshRate::Original, "Original" }, { RefreshRate::Display, "Display" }, { RefreshRate::Manual, "Manual" } },
+        graphics.add_enum_option("refresh_rate", "Frame rate",
+            "Original: the game's 30 fps. Display: as many frames as the monitor shows, with frames generated in "
+            "between the game's (interpolation). Manual: the rate below, up to the monitor's.",
+            { { RefreshRate::Original, "Original", "Original (30 fps)" }, { RefreshRate::Display, "Display", "Display (smooth)" },
+              { RefreshRate::Manual, "Manual" } },
             RefreshRate::Original);
-        graphics.add_number_option("refresh_rate_manual", "Manual refresh rate", "", 20, 360, 1, 0, false, 60);
+        graphics.add_number_option("refresh_rate_manual", "Manual frame rate", "Used when Frame rate is Manual.", 20, 360, 1, 0, false, 60);
         graphics.add_enum_option("high_precision_framebuffer", "High precision framebuffer", "",
             { { HighPrecisionFramebuffer::Auto, "Auto" }, { HighPrecisionFramebuffer::On, "On" },
               { HighPrecisionFramebuffer::Off, "Off" } },

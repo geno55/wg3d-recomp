@@ -30,6 +30,8 @@
 // sends the event to port n instead (with WG3D_FAKE_PADS >= n), e.g. "15:2>START".
 // WG3D_INPUT_LOG=1 logs every change of the buttons/stick the game receives.
 // WG3D_FAKE_PADS=N reports ports 2..N as connected idle controllers (port-detection tests, boot gate).
+// WG3D_IGNORE_PADS=1 leaves real controllers unopened, so a pad plugged into the machine can't change a test
+// run (tools/run_scenario.py sets it).
 // WG3D_PAKS="1,2" sets which ports have a Controller Pak inserted, overriding general.json
 // (pak_port_N; default every port). "none" for no paks.
 #include <algorithm>
@@ -434,6 +436,8 @@ namespace {
     }
 
     void open_pad(int device_index) {
+        static const bool ignore = std::getenv("WG3D_IGNORE_PADS") != nullptr;
+        if (ignore) return;
         SDL_GameController* pad = SDL_GameControllerOpen(device_index);
         if (!pad) return;
         SDL_JoystickID id = SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad));

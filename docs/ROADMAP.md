@@ -168,6 +168,31 @@ Status: done for the 3D view; the HUD stays at its 4:3 positions.
 
 ## v0.8.0 — High frame rate
 
+Status: done.
+- Native rate: 30 fps everywhere, each frame held 2 VIs (`docs/frame_pacing.md`).
+- RT64 interpolates this game without matrix IDs: its frame matching pairs about 170 of 180 transforms per
+  frame, so the camera, players and puck move smoothly at the display rate. No game patch was needed for
+  that.
+- What it can't know is when the camera cuts, which it would bridge with one frame mixing two views. The
+  game folds its camera into the projection matrix; `camera_cut` (`src/main/rt64_render_context.cpp`) reads
+  it from each display list and flags a frame whose camera jumps (more than 400 units or 25 degrees; play
+  never exceeds ~217 units and ~7 degrees per frame, cuts are 995+ units). RT64 then presents that frame
+  without interpolation: `patches/rt64/0001` (new, applied like the runtime patches).
+- The option is the existing Frame rate (`refresh_rate`): Original (30 fps) stays the default and matches the
+  goldens exactly; Display and Manual interpolate. Scenario `hfr_cuts` checks the cuts are found.
+- Changing a graphics setting while interpolating crashed in `VIRenderer::render`: RT64 destroyed its render
+  targets on the workload thread while the present thread was drawing one (a race RT64 notes in a TODO).
+  `patches/rt64/0002` makes the two exclude each other, and frame-rate and window-mode changes no longer
+  discard the framebuffers at all.
+- After a goal, the frame before the faceoff looked wrong: the cut frame was still matched to the one before
+  it, so the teleported players' jumps became velocities for the next frame. RT64 pairs objects by draw
+  state (no IDs), so a teleported or look-alike object can also pair with the wrong one. `patches/rt64/0003`:
+  a cut frame isn't matched at all, and a pair that moves more than 400 world units in a frame (after
+  velocity prediction) isn't interpolated (normal play: ~0.15% of pairs, the fast puck).
+- With the settings menu open, the background sometimes jumped between two frames: the presents repeated
+  every VI over the paused game replayed the last frame's interpolated in-betweens. `patches/rt64/0004`
+  marks those presents so they show the last frame as it is.
+
 - **Measure the native rate** per scene with `tools/frame_pacing.py`. **S**
 - **Tag the matrices.** **L** Find where the rink camera, player and puck matrices and display lists are
   built. Patch them to carry stable IDs, so RT64 can interpolate between frames.

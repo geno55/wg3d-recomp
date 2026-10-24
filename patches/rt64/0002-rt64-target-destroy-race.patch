@@ -1,0 +1,64 @@
+diff --git a/src/hle/rt64_shared_queue_resources.h b/src/hle/rt64_shared_queue_resources.h
+--- a/src/hle/rt64_shared_queue_resources.h
++++ b/src/hle/rt64_shared_queue_resources.h
+@@ -46,6 +46,9 @@ namespace RT64 {
+         FramebufferManager framebufferManager;
+         RenderTargetManager renderTargetManager;
+         std::mutex managerMutex;
++        // wg3d (patches/rt64/0002): held by the present thread while it uses a render target and by the
++        // workload thread while it destroys them (config changes), which otherwise raced.
++        std::mutex targetsMutex;
+ 
+         // Workload to present state.
+         uint32_t viOriginalRate = 0;
+diff --git a/src/hle/rt64_present_queue.cpp b/src/hle/rt64_present_queue.cpp
+--- a/src/hle/rt64_present_queue.cpp
++++ b/src/hle/rt64_present_queue.cpp
+@@ -135,6 +135,9 @@ namespace RT64 {
+             }
+         }
+ 
++        // wg3d (patches/rt64/0002): the render targets used below can't be destroyed meanwhile.
++        std::unique_lock<std::mutex> targetsLock(ext.sharedResources->targetsMutex);
++
+         // Present the VI specified by the event.
+         // Attempt to find the matching framebuffer for the VI based on the origin address.
+         // If that fails, we look at the shared storage.
+@@ -272,10 +275,14 @@ namespace RT64 {
+             if ((framesToPresent > 1) && (usingMSAA || (i > 0))) {
+                 // Stall until the interpolated color target is available.
+                 const uint32_t targetIndex = usingMSAA ? i : (i - 1);
++                targetsLock.unlock();  // wg3d (patches/rt64/0002): not while waiting for the workload thread
+                 std::unique_lock<std::mutex> interpolatedLock(ext.sharedResources->interpolatedMutex);
+                 ext.sharedResources->interpolatedCondition.wait(interpolatedLock, [&]() {
+                     return (frameCounters.available > targetIndex) || ((frameCounters.available == targetIndex) && frameCounters.skipped);
+                 });
++                interpolatedLock.unlock();
++                targetsLock.lock();
++                interpolatedLock.lock();
+ 
+                 // Do not present any more frames after this one after reaching the last available frame if the workload was skipped.
+                 if ((frameCounters.available == targetIndex) && frameCounters.skipped) {
+@@ -288,7 +295,9 @@ namespace RT64 {
+ 
+                 if (i < framesToPresent) {
+                     uint32_t targetIndex = usingMSAA ? i : (i - 1);
+-                    colorTarget = ext.sharedResources->interpolatedColorTargets[targetIndex].get();
++                    // wg3d (patches/rt64/0002): the targets may have been destroyed while waiting.
++                    const auto &targets = ext.sharedResources->interpolatedColorTargets;
++                    colorTarget = (targetIndex < targets.size()) ? targets[targetIndex].get() : nullptr;
+                 }
+                 else {
+                     colorTarget = nullptr;
+diff --git a/src/hle/rt64_workload_queue.cpp b/src/hle/rt64_workload_queue.cpp
+--- a/src/hle/rt64_workload_queue.cpp
++++ b/src/hle/rt64_workload_queue.cpp
+@@ -263,6 +263,8 @@ namespace RT64 {
+                 });
+             }
+ 
++            // wg3d (patches/rt64/0002): not while the present thread is using a target.
++            std::scoped_lock<std::mutex> targetsLock(ext.sharedResources->targetsMutex);
+             std::scoped_lock<std::mutex> managerLock(ext.sharedResources->managerMutex);
+             FramebufferManager &fbManager = ext.sharedResources->framebufferManager;
+             RenderTargetManager &targetManager = ext.sharedResources->renderTargetManager;

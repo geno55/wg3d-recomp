@@ -5,7 +5,8 @@
 #   tools\run_wg3d.ps1 -Seconds 60 -Name run5     (background)
 #   tools\shot_wg3d.ps1 -Name title                (whenever a capture is wanted)
 # -Count N -IntervalMs M takes a series: build\<Name>_<i>.png, one every M ms.
-param([string]$Name = "shot", [string]$Process = "wg3d", [int]$Count = 1, [int]$IntervalMs = 1000)
+# -ProcId N captures that process's window (another wg3d.exe, e.g. one the user is playing, may be open).
+param([string]$Name = "shot", [string]$Process = "wg3d", [int]$Count = 1, [int]$IntervalMs = 1000, [int]$ProcId = 0)
 Add-Type -AssemblyName System.Drawing
 Add-Type @"
 using System;
@@ -19,7 +20,11 @@ public static class WinCap {
 "@
 [WinCap]::SetProcessDPIAware() | Out-Null
 $root = Split-Path -Parent $PSScriptRoot
-$p = Get-Process $Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+if ($ProcId -ne 0) {
+    $p = Get-Process -Id $ProcId -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero }
+} else {
+    $p = Get-Process $Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+}
 if (-not $p) { "[shot] no $Process window"; exit 1 }
 $h = $p.MainWindowHandle
 $t0 = Get-Date
