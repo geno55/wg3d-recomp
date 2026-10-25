@@ -192,6 +192,11 @@ Status: done.
 - With the settings menu open, the background sometimes jumped between two frames: the presents repeated
   every VI over the paused game replayed the last frame's interpolated in-betweens. `patches/rt64/0004`
   marks those presents so they show the last frame as it is.
+- Fixed in v0.8.1 (issue #1): with Display or Manual frame rate, the game could crash at the start of play
+  in RT64's buffer upload thread. A camera cut frame isn't matched (`0003`), so RT64's transform processor
+  left its interpolated transforms empty but its upload still read them, for as many transforms as the frame
+  had (194 at the start of play), past the end of their allocation. `patches/rt64/0005` makes the upload
+  use the same per-workload check as the processing.
 
 - **Measure the native rate** per scene with `tools/frame_pacing.py`. **S**
 - **Tag the matrices.** **L** Find where the rink camera, player and puck matrices and display lists are

@@ -87,8 +87,9 @@ the ROM is in this repository.
 `lib/N64ModernRuntime` is pinned to sonicdcer's `controller_pak_super_rebase` branch (Controller Pak support);
 `patches/runtime/` holds this project's changes on top (VI null-mode fix, per-port paks + pak call log, a lockstep
 speed multiplier for fast test runs, the full-pak check, and pausing the game for the menu). `patches/rt64/` holds
-four changes to RT64 for frame interpolation: camera cuts are presented without it and not matched to the frame
+five changes to RT64 for frame interpolation: camera cuts are presented without it and not matched to the frame
 before; object pairs that jump more than a set distance aren't interpolated; presents repeated over the paused
-game (settings menu) show the last frame without interpolation; and a race between destroying render targets on
-a settings change and presenting them is fixed. Both are applied when
+game (settings menu) show the last frame without interpolation; a race between destroying render targets on
+a settings change and presenting them is fixed; and the frame of a camera cut no longer uploads its world
+transforms from empty buffers (a crash at the start of play, issue #1). Both are applied when
 CMake configures.

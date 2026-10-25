@@ -1,0 +1,16 @@
+diff --git a/src/render/rt64_transform_processor.cpp b/src/render/rt64_transform_processor.cpp
+index cd8004d..cb97b4f 100644
+--- a/src/render/rt64_transform_processor.cpp
++++ b/src/render/rt64_transform_processor.cpp
+@@ -74,7 +74,10 @@ namespace RT64 {
+         uploads.clear();
+ 
+         for (uint32_t w : p.curFrame->workloads) {
+-            const bool prevFrameValid = (p.prevFrame != nullptr);
++            // wg3d (patches/rt64/0005): the same check as process(), which fills the lerp/prev transforms only for a
++            // mapped workload; an unmapped one (a camera cut isn't matched, patches/rt64/0003) uploaded those vectors
++            // empty, reading past their allocation (crash in the BufferUploader thread, wg3d-recomp issue #1).
++            const bool prevFrameValid = (p.prevFrame != nullptr) && p.curFrame->frameMap.workloads[w].mapped;
+             Workload &workload = p.workloadQueue->workloads[w];
+             const DrawData &drawData = workload.drawData;
+             DrawBuffers &drawBuffers = workload.drawBuffers;
